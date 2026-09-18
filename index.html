@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Graphic Skills Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#13151c;
+  --surface:#1c1f29;
+  --surface-2:#252938;
+  --line:#333748;
+  --text:#f4f2ec;
+  --text-dim:#9a9db3;
+  --gold:#f2b807;
+  --gold-dim:#7a6420;
+  --teal:#33d6c0;
+  --red:#ef5b5b;
+  --green:#4fd67a;
+  --font-display:'Space Grotesk', sans-serif;
+  --font-body:'Inter', sans-serif;
+}
+:root:not([data-theme="dark"]){
+  /* app is intentionally single-theme (dark) regardless of system preference */
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  font-feature-settings:"kern" 1, "liga" 1;
+}
+#app{
+  max-width:640px;
+  margin:0 auto;
+  min-height:100vh;
+  padding:28px 22px 60px;
+  display:flex;
+  flex-direction:column;
+}
+h1,h2,h3{font-family:var(--font-display);margin:0;letter-spacing:-0.01em;}
+p{line-height:1.6;color:var(--text-dim);margin:0;font-size:15px;}
+button{font-family:var(--font-body);cursor:pointer;transition:transform .15s cubic-bezier(.2,.8,.2,1), background .15s ease, border-color .15s ease, box-shadow .15s ease;}
+button:active{transform:scale(0.98);}
+.hidden{display:none !important;}
+
+/* ---- top bar ---- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:30px;
+}
+.brand{font-family:var(--font-display);font-weight:600;font-size:17px;letter-spacing:-0.01em;color:var(--text-dim);}
+.brand span{color:var(--gold);font-weight:700;}
+.mode-switch{
+  display:flex;background:var(--surface);border-radius:10px;padding:3px;border:1px solid var(--line);
+}
+.mode-switch button{
+  border:none;background:transparent;color:var(--text-dim);font-size:13px;font-weight:600;
+  padding:6px 12px;border-radius:8px;
+}
+.mode-switch button.active{background:var(--surface-2);color:var(--text);}
+
+/* ---- home ---- */
+.home-hero{margin-top:16px;margin-bottom:36px;}
+.home-hero h1{font-size:36px;line-height:1.16;font-weight:700;margin-bottom:16px;max-width:12ch;letter-spacing:-0.02em;}
+.home-hero p{font-size:16.5px;max-width:36ch;line-height:1.6;}
+.home-cards{display:flex;flex-direction:column;gap:14px;margin-top:30px;}
+.role-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:20px;
+  padding:22px;text-align:left;display:flex;align-items:center;gap:16px;
+  box-shadow:0 1px 2px rgba(0,0,0,.16);
+}
+.role-card:hover{border-color:var(--teal);background:var(--surface-2);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.22);}
+.role-card .icon{
+  width:46px;height:46px;border-radius:14px;background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;
+}
+.role-card .txt h3{font-size:16.5px;margin-bottom:5px;font-weight:600;letter-spacing:-0.005em;}
+.role-card .txt p{font-size:13.5px;line-height:1.5;}
+
+/* ---- generic card / screen ---- */
+.screen{display:flex;flex-direction:column;flex:1;}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:22px;
+  padding:28px;
+  box-shadow:0 1px 2px rgba(0,0,0,.14), 0 12px 32px rgba(0,0,0,.18);
+}
+
+/* ---- intro form ---- */
+.field{margin-bottom:18px;}
+.field label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:7px;font-weight:500;letter-spacing:.01em;}
+.field input, .field select, textarea{
+  width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  color:var(--text);padding:13px 15px;font-size:15.5px;font-family:var(--font-body);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus, .field select:focus, textarea:focus{border-color:var(--teal);outline:2px solid rgba(51,214,192,.35);outline-offset:1px;}
+
+.pwd-wrap{position:relative;}
+.pwd-wrap input{padding-right:78px;}
+.pwd-toggle{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  color:var(--text-dim);font-size:12px;font-weight:600;padding:7px 11px;
+}
+.pwd-toggle:hover{color:var(--text);border-color:var(--teal);}
+.class-pick{display:flex;gap:9px;}
+.class-pick button{
+  flex:1;padding:13px 0;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--text);font-weight:600;font-size:15px;
+}
+.class-pick button.sel{border-color:var(--gold);background:rgba(242,184,7,.12);color:var(--gold);}
+
+.btn-primary{
+  background:var(--gold);color:#1a1400;border:none;border-radius:14px;padding:15px 22px;
+  font-weight:700;font-size:15.5px;width:100%;margin-top:10px;letter-spacing:-0.005em;
+  box-shadow:0 4px 14px rgba(242,184,7,.22);
+}
+.btn-primary:hover:not(:disabled){box-shadow:0 6px 18px rgba(242,184,7,.3);}
+.btn-primary:disabled{background:var(--surface-2);color:var(--text-dim);cursor:not-allowed;box-shadow:none;}
+.btn-secondary{
+  background:transparent;color:var(--text);border:1px solid var(--line);border-radius:14px;
+  padding:14px 22px;font-weight:600;font-size:14.5px;width:100%;
+}
+.btn-secondary:hover{border-color:var(--teal);background:var(--surface-2);}
+.btn-ghost{background:transparent;border:none;color:var(--text-dim);font-size:13.5px;text-decoration:underline;padding:8px;text-underline-offset:3px;}
+.btn-ghost:hover{color:var(--text);}
+
+/* ---- progress ---- */
+.progress-wrap{margin-bottom:20px;}
+.progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;}
+.progress-top .r-label{font-size:12.5px;color:var(--text-dim);font-weight:600;letter-spacing:.02em;}
+.progress-top .r-count{font-size:12.5px;color:var(--text-dim);}
+.progress-bar{height:6px;background:var(--surface-2);border-radius:6px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--teal);border-radius:6px;transition:width .35s cubic-bezier(.2,.8,.2,1);}
+
+/* ---- round header ---- */
+.round-header{margin-bottom:22px;}
+.round-header .rk{font-size:13px;color:var(--teal);font-weight:600;margin-bottom:7px;letter-spacing:.02em;}
+.round-header h2{font-size:23px;line-height:1.25;margin-bottom:7px;font-weight:600;}
+.round-header .sub{font-size:14.5px;line-height:1.5;}
+
+/* ---- question ---- */
+.q-text{font-size:17.5px;font-weight:600;margin-bottom:18px;line-height:1.45;letter-spacing:-0.005em;}
+.opts{display:flex;flex-direction:column;gap:11px;}
+.opt{
+  text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;
+  padding:15px 17px;font-size:15px;color:var(--text);line-height:1.4;
+}
+.opt:hover{border-color:var(--teal);background:#242838;}
+.opt.chosen{border-color:var(--gold);background:rgba(242,184,7,.1);}
+.opt.multi.chosen::before{content:"✓ ";color:var(--gold);font-weight:700;}
+
+/* ---- boss fight text ---- */
+.boss-brief{
+  background:var(--surface-2);border-radius:14px;padding:17px 18px;margin-bottom:20px;font-size:14px;
+  line-height:1.6;border-left:3px solid var(--gold);
+}
+
+/* ---- detective poster mockup ---- */
+.poster-mock{
+  position:relative;width:100%;aspect-ratio:3/4;border-radius:18px;overflow:hidden;
+  margin-bottom:20px;background:
+    radial-gradient(120% 90% at 30% 20%, #3a3320 0%, #1d1f14 45%, #0d0e0a 100%);
+  border:1px solid var(--line);
+  box-shadow:0 10px 28px rgba(0,0,0,.28);
+}
+.poster-title{
+  position:absolute;top:14%;left:6%;right:6%;
+  font-family:var(--font-display);font-weight:700;font-size:9.2vw;line-height:0.94;
+  color:#d8d4c4;text-transform:uppercase;
+  text-shadow:0 2px 10px rgba(0,0,0,.4);
+}
+@media(min-width:600px){.poster-title{font-size:54px;}}
+.poster-shout{
+  position:absolute;top:46%;left:6%;right:6%;
+  font-weight:800;font-size:6.2vw;color:#ffce33;text-transform:uppercase;letter-spacing:.01em;
+  text-shadow:0 1px 6px rgba(0,0,0,.5);
+}
+@media(min-width:600px){.poster-shout{font-size:34px;}}
+.poster-info{
+  position:absolute;bottom:16%;left:6%;right:6%;
+  display:flex;flex-wrap:wrap;gap:7px;
+}
+.poster-chip{
+  background:rgba(255,255,255,.1);color:#cfcfc7;font-size:11px;font-weight:600;
+  padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
+}
+.poster-cta{
+  position:absolute;bottom:5%;left:6%;
+  background:#e6dfc8;color:#12130d;font-weight:700;font-size:12px;
+  padding:9px 18px;border-radius:999px;
+}
+.poster-zone{transition:box-shadow .3s cubic-bezier(.2,.8,.2,1), outline-color .3s ease;border-radius:10px;}
+.poster-zone.hl{
+  outline:2px solid var(--teal);outline-offset:5px;
+  box-shadow:0 0 0 5px rgba(51,214,192,.12);
+}
+.poster-hint{font-size:12.5px;color:var(--text-dim);margin-bottom:16px;line-height:1.5;}
+
+/* ---- receipt / result ---- */
+.receipt{
+  background:var(--surface);border:1px dashed var(--line);border-radius:22px;padding:28px;
+  box-shadow:0 1px 2px rgba(0,0,0,.14), 0 12px 32px rgba(0,0,0,.18);
+}
+.receipt-head{text-align:center;margin-bottom:22px;}
+.receipt-head .emoji{font-size:36px;margin-bottom:9px;}
+.receipt-head h2{font-size:21px;font-weight:600;}
+.receipt-row{
+  display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);
+  font-size:14.5px;
+}
+.receipt-row:last-child{border-bottom:none;}
+.receipt-row .k{color:var(--text-dim);}
+.receipt-row .v{font-weight:600;}
+.receipt-total{
+  margin-top:16px;padding-top:16px;border-top:2px solid var(--line);
+  display:flex;justify-content:space-between;align-items:baseline;
+}
+.receipt-total .k{font-size:15px;font-weight:600;}
+.receipt-total .v{font-size:28px;font-family:var(--font-display);font-weight:700;color:var(--gold);letter-spacing:-0.01em;}
+.level-tag{
+  display:inline-block;margin-top:16px;padding:7px 15px;border-radius:999px;
+  background:rgba(51,214,192,.14);color:var(--teal);font-size:13px;font-weight:600;
+}
+.saved-tag{
+  display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;color:var(--green);font-weight:600;
+}
+.code-box{
+  margin-top:24px;background:var(--surface-2);border-radius:14px;padding:16px;
+}
+.code-box textarea{
+  width:100%;background:transparent;border:none;color:var(--text-dim);font-size:11px;
+  font-family:monospace;resize:none;height:70px;line-height:1.5;
+}
+.code-hint{font-size:13px;margin-top:16px;color:var(--text-dim);line-height:1.55;}
+
+/* ---- teacher ---- */
+.pin-wrap{text-align:center;padding-top:64px;}
+.pin-wrap h2{font-size:22px;font-weight:600;}
+.pin-wrap input{
+  text-align:center;font-size:24px;letter-spacing:7px;max-width:230px;margin:0 auto;
+  border-radius:14px;
+}
+.import-box textarea{height:92px;font-family:monospace;font-size:12px;border-radius:12px;line-height:1.6;}
+.stu-table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13.5px;}
+.stu-table th{
+  text-align:left;color:var(--text-dim);font-weight:600;font-size:11px;text-transform:uppercase;
+  letter-spacing:.04em;padding:9px 11px;border-bottom:1px solid var(--line);
+}
+.stu-table td{padding:11px;border-bottom:1px solid var(--line);}
+.stu-table tr{transition:background .15s ease;}
+.stu-table tr:hover td{background:var(--surface-2);cursor:pointer;}
+.vote-pill{
+  display:inline-block;min-width:28px;text-align:center;padding:4px 9px;border-radius:9px;font-weight:700;
+}
+.vote-pill.low{background:rgba(239,91,91,.15);color:var(--red);}
+.vote-pill.mid{background:rgba(242,184,7,.15);color:var(--gold);}
+.vote-pill.high{background:rgba(79,214,122,.15);color:var(--green);}
+.empty-state{text-align:center;padding:54px 20px;color:var(--text-dim);}
+.empty-state p{line-height:1.7;}
+.detail-back{margin-bottom:16px;}
+.hist-item{
+  background:var(--surface-2);border-radius:14px;padding:16px;margin-bottom:11px;font-size:13.5px;
+}
+.hist-item .hist-top{display:flex;justify-content:space-between;margin-bottom:7px;font-weight:600;align-items:center;}
+.breakdown{font-size:12.5px;color:var(--text-dim);margin-top:7px;line-height:1.7;}
+.toolbar{display:flex;gap:10px;margin-top:20px;}
+.toolbar button{flex:1;}
+.class-filter{display:flex;gap:7px;margin:18px 0 6px;flex-wrap:wrap;}
+.class-filter button{
+  padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--text-dim);font-size:12.5px;font-weight:600;
+}
+.class-filter button.sel{border-color:var(--teal);color:var(--teal);}
+.toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%);
+  background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+  padding:13px 22px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.3);
+  transition:opacity .25s ease, transform .25s ease;z-index:50;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-8px);}
+
+footer.foot{margin-top:auto;padding-top:34px;text-align:center;}
+footer.foot p{font-size:11.5px;color:#54586b;letter-spacing:.01em;}
+
+/* ---- auth ---- */
+.auth-tabs{display:flex;gap:6px;background:var(--surface-2);padding:4px;border-radius:13px;margin-bottom:22px;}
+.auth-tabs button{flex:1;padding:10px;border:none;background:transparent;border-radius:10px;color:var(--text-dim);font-weight:600;font-size:14px;}
+.auth-tabs button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18);}
+.saved-profiles{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 20px;}
+.saved-chip{padding:8px 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-dim);font-size:12.5px;font-weight:600;}
+.saved-chip:hover{border-color:var(--teal);color:var(--text);}
+.auth-error{color:var(--red);font-size:13px;margin:-8px 0 16px;line-height:1.5;}
+
+/* ---- profile ---- */
+.profile-card-top{display:flex;align-items:center;gap:15px;margin-bottom:24px;}
+.avatar-circle{
+  width:54px;height:54px;border-radius:50%;background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--gold);flex-shrink:0;
+  border:1px solid var(--line);
+}
+.profile-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;}
+.stat-box{flex:1;background:var(--surface-2);border-radius:16px;padding:16px 10px;text-align:center;}
+.stat-box .num{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-0.01em;}
+.stat-box .lbl{font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.3;}
+
+.prova-card{
+  background:var(--surface-2);border-radius:16px;padding:18px;margin-top:14px;
+}
+.prova-card:first-of-type{margin-top:4px;}
+.prova-card.locked{opacity:.6;}
+.prova-label{font-size:11.5px;color:var(--teal);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+.prova-card.locked .prova-label{color:var(--text-dim);}
+.prova-card h3{font-size:17px;font-weight:600;margin-bottom:6px;line-height:1.3;}
+.prova-card p{font-size:13.5px;margin-bottom:14px;}
+
+.prova-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--surface-2);border-radius:14px;padding:14px 16px;margin-bottom:10px;
+}
+.prova-row-info{display:flex;flex-direction:column;gap:3px;font-size:14px;}
+.prova-row-info span{font-size:12px;color:var(--text-dim);}
+.prova-toggle{
+  flex-shrink:0;padding:9px 16px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface);color:var(--text-dim);font-size:12.5px;font-weight:700;
+}
+.prova-toggle.on{background:rgba(79,214,122,.15);border-color:var(--green);color:var(--green);}
+
+@media (max-width:420px){
+  .home-hero h1{font-size:29px;}
+}
+</style>
+</head>
+<body>
+<script type="application/json" id="prova-lock-state">{"riepilogo-grafica-01":true,"cultura-grafica-01":true}</script>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   GRAPHIC SKILLS CHECK
+   Studente: fa il percorso, ottiene un compenso in euro e un
+   codice da inviare all'insegnante.
+   Docente: incolla i codici, la dashboard calcola voto e
+   credito residuo (persistiti in localStorage sul dispositivo
+   del docente).
+========================================================= */
+
+const STORAGE_KEY = "gsc_teacher_db_v1";
+
+/* ---------------- DOMANDE ---------------- */
+
+const ROUND_GRAFICA = {
+  key:"grafica", title:"Grafica generale", rk:"Round 1",
+  sub:"Concetti base: nessun software, solo occhio.",
+  type:"quiz",
+  questions:[
+    {q:"Che cosa indica la \"gerarchia visiva\" in una composizione?", opts:[
+      "L'ordine in cui l'occhio legge gli elementi, dal più al meno importante",
+      "Il numero di colori usati in una grafica",
+      "La dimensione del file da esportare",
+      "Il font principale scelto dal cliente"], correct:0},
+    {q:"Qual è la differenza principale tra grafica vettoriale e raster?", opts:[
+      "Il vettoriale è fatto di pixel, il raster di forme matematiche",
+      "Il vettoriale è fatto di forme matematiche e scala senza perdere qualità, il raster è fatto di pixel",
+      "Non c'è nessuna differenza pratica",
+      "Il raster si usa solo per il web, il vettoriale solo per la stampa"], correct:1},
+    {q:"A cosa serve una CTA (call to action) in una grafica pubblicitaria?", opts:[
+      "A decorare lo spazio vuoto",
+      "A indicare il copyright dell'autore",
+      "A dire chiaramente all'utente cosa fare subito dopo (es. \"Prenota ora\")",
+      "A indicare il formato del file"], correct:2},
+    {q:"Perché il contrasto (colore, dimensione, peso) è importante in un layout?", opts:[
+      "Serve solo per estetica, non ha funzione pratica",
+      "Aiuta a guidare l'occhio e a distinguere cosa è più importante",
+      "Serve solo nei loghi",
+      "Riduce il peso del file"], correct:1},
+    {q:"Quando ha più senso usare un font serif rispetto a un sans serif?", opts:[
+      "Mai, i serif sono sempre superati",
+      "Solo per loghi tech",
+      "In contesti eleganti, editoriali o che richiamano tradizione/autorevolezza",
+      "Solo per titoli molto grandi"], correct:2},
+    {q:"A cosa serve una griglia (grid) in un progetto grafico?", opts:[
+      "A riempire lo sfondo",
+      "A allineare e organizzare gli elementi in modo coerente",
+      "A scegliere i colori",
+      "A comprimere le immagini"], correct:1},
+  ]
+};
+
+const ROUND_ILLUSTRATOR = {
+  key:"illustrator", title:"Illustrator", rk:"Round 2",
+  sub:"Vettoriale, tracciati, strumenti.",
+  type:"quiz",
+  questions:[
+    {q:"Qual è l'estensione nativa dei file di Illustrator?", opts:[".psd",".ai",".indd",".eps solamente"], correct:1},
+    {q:"Quale strumento usi per creare tracciati e curve precise (le \"bezier\")?", opts:[
+      "Strumento Penna","Strumento Testo","Strumento Sfumatura","Strumento Nuvoletta"], correct:0},
+    {q:"A cosa serve il Pathfinder?", opts:[
+      "A cambiare il colore del testo",
+      "A combinare, sottrarre o intersecare forme tra loro",
+      "A esportare in PDF",
+      "A creare animazioni"], correct:1},
+    {q:"Qual è la differenza principale tra Livelli e Gruppi?", opts:[
+      "Sono la stessa cosa",
+      "I livelli organizzano l'intero documento in \"strati\", i gruppi uniscono più oggetti in un solo elemento gestibile insieme",
+      "I gruppi servono solo per il testo",
+      "I livelli si usano solo in Photoshop"], correct:1},
+    {q:"Come si chiama l'operazione che trasforma un testo in forme vettoriali modificabili (utile per consegnare file senza problemi di font)?", opts:[
+      "Rasterizza","Crea contorni (outline)","Appiattisci immagine","Converti in smart object"], correct:1},
+    {q:"Per un lavoro destinato alla stampa (es. locandina), che modalità colore è corretto usare?", opts:[
+      "RGB","CMYK","HSB","Scala di grigi sempre"], correct:1},
+  ]
+};
+
+const ROUND_PHOTOSHOP = {
+  key:"photoshop", title:"Photoshop", rk:"Round 3",
+  sub:"Livelli, maschere, ritocco.",
+  type:"quiz",
+  questions:[
+    {q:"A cosa serve una maschera di livello?", opts:[
+      "A cancellare in modo definitivo parte dell'immagine",
+      "A nascondere/mostrare parti di un livello in modo non distruttivo",
+      "A cambiare la risoluzione",
+      "A creare un nuovo documento"], correct:1},
+    {q:"Qual è la differenza pratica tra una selezione e una maschera?", opts:[
+      "Nessuna, sono identiche",
+      "La selezione è un'area temporanea su cui agire, la maschera la \"salva\" e la rende modificabile nel tempo",
+      "La maschera serve solo per il testo",
+      "La selezione funziona solo con lo strumento penna"], correct:1},
+    {q:"Per la stampa di qualità, quale risoluzione è lo standard? E per il web?", opts:[
+      "300 dpi stampa / 72 dpi web",
+      "72 dpi stampa / 300 dpi web",
+      "150 dpi per entrambi",
+      "Non conta, conta solo la dimensione in pixel"], correct:0},
+    {q:"A cosa serve lo strumento Timbro clone?", opts:[
+      "A duplicare l'intero documento",
+      "A copiare pixel da una zona dell'immagine per coprire/ritoccare un'altra zona",
+      "A cambiare la luminosità globale",
+      "A creare un livello di testo"], correct:1},
+    {q:"Quale formato immagine mantiene la trasparenza (canale alpha)?", opts:["JPEG","PNG","BMP standard","JPEG 2000 sempre"], correct:1},
+    {q:"A cosa servono i Livelli di regolazione (es. Curve, Bilanciamento colore)?", opts:[
+      "Modificano colore/tono in modo non distruttivo, senza toccare i pixel originali",
+      "Servono solo per ridimensionare",
+      "Aggiungono automaticamente filtri artistici",
+      "Servono solo per il testo"], correct:0},
+  ]
+};
+
+const ROUND_DETECTIVE = {
+  key:"detective", title:"Il detective visivo", rk:"Round 4",
+  sub:"Guarda la locandina qui sotto e trova i problemi.",
+  type:"multi",
+  options:[
+    {t:"Troppi elementi urlano tutti insieme, nessuna gerarchia", zones:["title","shout","info"], ok:true},
+    {t:"Titolo poco leggibile per basso contrasto con lo sfondo", zones:["title"], ok:true},
+    {t:"Troppe informazioni con lo stesso peso, non si capisce cosa leggere prima", zones:["info"], ok:true},
+    {t:"CTA generica (\"clicca qui\") che non dice cosa succede dopo", zones:["cta"], ok:true},
+    {t:"Il formato è quadrato invece che verticale", zones:[], ok:false},
+    {t:"Uso eccessivo di maiuscole e punteggiatura per creare urgenza finta", zones:["shout"], ok:true}
+  ]
+};
+
+const ROUND_SCENARIO = {
+  key:"scenario", title:"Cosa faresti?", rk:"Round 5",
+  sub:"Situazioni pratiche da freelance.",
+  type:"quiz",
+  questions:[
+    {q:"Un cliente vuole un logo per una pizzeria e ti scrive solo \"fammi qualcosa di bello\". Cosa fai prima?", opts:[
+      "Inizi subito a disegnare varianti in Illustrator",
+      "Fai un breve briefing: pubblico, stile, colori che non vuole, dove verrà usato il logo",
+      "Mandi 10 loghi a caso e scegli lui",
+      "Copi un logo simile trovato online"], correct:1},
+    {q:"Devi preparare una foto per un post Instagram: qual è la priorità?", opts:[
+      "Aumentare al massimo saturazione e contrasto sempre",
+      "Verificare inquadratura, luce e formato corretto per il feed prima di ogni ritocco",
+      "Aggiungere subito un filtro preimpostato",
+      "Ridurre la risoluzione per far caricare prima il post"], correct:1},
+    {q:"Un cliente insiste per usare Comic Sans gigante e dieci colori diversi sulla sua locandina professionale. Come rispondi?", opts:[
+      "Lo accontenti subito senza dire nulla, tanto paga lui",
+      "Rifiuti il lavoro e basta",
+      "Gli spieghi con calma perché quelle scelte danneggiano il messaggio e proponi un'alternativa coerente col brief",
+      "Fai la grafica come vuole lui ma con un font leggermente diverso"], correct:2},
+  ]
+};
+
+const BOSS_FIGHT = {
+  key:"boss", title:"Boss fight — Il brief", rk:"Round 6",
+  sub:"Costruisci il concept per un cliente vero.",
+  type:"boss",
+  brief:"Cliente: locale musicale in centro città.\nEvento: serata a tema \"anni 2000\", pubblico 20–35 anni.\nMaterial richiesto: locandina per Instagram Stories.",
+  steps:[
+    {label:"Target", key:"target", opts:[
+      {t:"Famiglie con bambini piccoli", ok:false},
+      {t:"Giovani adulti 20–35 anni, nostalgici anni 2000", ok:true},
+      {t:"Pubblico generico senza distinzioni", ok:false}]},
+    {label:"Palette colori", key:"colori", opts:[
+      {t:"Toni pastello delicati e minimal", ok:false},
+      {t:"Colori accesi, contrasti vivaci, richiami pop/Y2K", ok:true},
+      {t:"Bianco e nero istituzionale", ok:false}]},
+    {label:"Font", key:"font", opts:[
+      {t:"Serif classico ed elegante", ok:false},
+      {t:"Font bold, grafico, con richiami retro/digitali", ok:true},
+      {t:"Font scritto a mano, delicato", ok:false}]},
+    {label:"Formato", key:"formato", opts:[
+      {t:"Verticale 9:16, pensato per le Stories", ok:true},
+      {t:"Orizzontale A4 da stampa", ok:false},
+      {t:"Quadrato 1:1 stile album", ok:false}]}
+  ],
+  ideaPrompt:"In una frase: qual è l'idea visiva centrale della tua locandina?"
+};
+
+const ROUNDS_RIEPILOGO = [ROUND_GRAFICA, ROUND_ILLUSTRATOR, ROUND_PHOTOSHOP, ROUND_DETECTIVE, ROUND_SCENARIO, BOSS_FIGHT];
+
+const ROUND_CULTURA = {
+  key:"cultura", title:"Cultura grafica", rk:"Round 1",
+  sub:"Nomi, cose, perché — 10 domande a raffica sul mondo del design.",
+  type:"quiz",
+  questions:[
+    {q:"Chi ha disegnato l'Helvetica, uno dei font più usati al mondo (1957)?", opts:[
+      "Max Miedinger","Paul Rand","Adrian Frutiger","Eric Gill"], correct:0},
+    {q:"Perché si chiama proprio \"Helvetica\"?", opts:[
+      "Dal cognome del designer",
+      "Dal nome latino della Svizzera (Helvetia), dove è stato creato",
+      "Era il nome dello studio grafico che lo produceva",
+      "Da una città tedesca"], correct:1},
+    {q:"Chi ha disegnato l'attuale logo Apple, la mela morsicata?", opts:[
+      "Steve Jobs","Rob Janoff","Paul Rand","Massimo Vignelli"], correct:1},
+    {q:"A cosa serve davvero il sistema Pantone?", opts:[
+      "A stampare solo in bianco e nero",
+      "A garantire che un colore resti identico su stampe e materiali diversi",
+      "A misurare la luminosità di uno schermo",
+      "A scegliere i font per il web"], correct:1},
+    {q:"Cosa distingue un sans serif \"geometric\" (es. Futura) da uno \"grotesque\" (es. Helvetica)?", opts:[
+      "Il geometric si basa su forme pure come cerchio e quadrato, il grotesque ha forme più irregolari",
+      "Il geometric è sempre corsivo",
+      "Non c'è nessuna differenza reale",
+      "Il grotesque si usa solo per il web"], correct:0},
+    {q:"Cos'è il \"kerning\" in tipografia?", opts:[
+      "La dimensione generale del font",
+      "La regolazione dello spazio tra due singole lettere",
+      "Il colore del testo",
+      "Il numero di pesi (weight) di una famiglia"], correct:1},
+    {q:"Il font Comic Sans nacque originariamente per...", opts:[
+      "Un manifesto per una mostra d'arte",
+      "Un personaggio cane parlante in un vecchio software Microsoft",
+      "Una rivista italiana di fumetti",
+      "Un progetto universitario"], correct:1},
+    {q:"Cosa significa l'acronimo CMYK, i colori della stampa?", opts:[
+      "Color, Magenta, Yellow, Black",
+      "Cyan, Magenta, Yellow, Key (nero)",
+      "Contrast, Mode, Yield, Kelvin",
+      "Custom, Multi, Your, Kit"], correct:1},
+    {q:"Perché alcune aziende registrano un colore specifico come marchio (es. il viola di un noto brand di cioccolato)?", opts:[
+      "Per pagare meno tasse",
+      "Per essere riconoscibili ed evitare che altri brand usino lo stesso colore",
+      "Perché lo impone la legge europea",
+      "In realtà non è mai stato fatto davvero"], correct:1},
+    {q:"Chi tra questi è considerato un pioniere del design grafico moderno del '900?", opts:[
+      "Paul Rand","Leonardo da Vinci","Coco Chanel","Nessuno dei tre"], correct:0}
+  ]
+};
+const ROUNDS_CULTURA = [ROUND_CULTURA];
+
+/* Registro di TUTTI i round mai creati (di ogni prova), usato per ritrovare
+   titolo/testo quando si legge lo storico di una prova passata. */
+const ROUND_REGISTRY = {};
+[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
+
+/* Le prove disponibili. Ognuna può essere sbloccata o bloccata dal docente.
+   "unlocked" qui sotto è il valore di default che parte con l'app; il
+   docente può poi sovrascriverlo dalla sua dashboard (vedi PROVA_OVERRIDES_KEY) —
+   quella modifica però vale solo sul dispositivo su cui la fa, finché l'app
+   non ha un backend condiviso (vedi nota in dashboard docente). */
+const PROVE = [
+  {
+    id:"riepilogo-grafica-01",
+    icon:"🗓️",
+    title:"Cose da fare: Prova numero 1 · giornata 17 settembre 2026",
+    desc:"Grafica, Illustrator, Photoshop e casi pratici — 6 round, circa 20 minuti.",
+    unlocked:true,
+    rounds: ROUNDS_RIEPILOGO
+  },
+  {
+    id:"cultura-grafica-01",
+    icon:"⚡",
+    title:"Cose da fare: Straordinario quiz · 10 domande",
+    desc:"10 domande a raffica sul mondo del design: nomi, curiosità, perché le cose si chiamano così.",
+    unlocked:true,
+    rounds: ROUNDS_CULTURA
+  }
+];
+
+/* round della prova che lo studente sta facendo in questo momento */
+let ACTIVE_ROUNDS = PROVE[0].rounds;
+let ACTIVE_PROVA = PROVE[0];
+
+/* Stato condiviso di blocco/sblocco prove: vive dentro la pagina pubblicata
+   stessa (tag <script id="prova-lock-state">). Quando il docente lo tocca,
+   l'app ripubblica l'intera pagina con lo stato aggiornato tramite la
+   capability "artifact" — e ogni scheda aperta (inclusi gli studenti) si
+   aggiorna da sola, davvero per tutti, non solo su questo dispositivo. */
+let SHARED_PROVA_STATE = {};
+try{
+  const el0 = document.getElementById("prova-lock-state");
+  if(el0) SHARED_PROVA_STATE = JSON.parse(el0.textContent) || {};
+}catch(e){ SHARED_PROVA_STATE = {}; }
+
+/* Override locale, usato SOLO come ripiego quando la ripubblicazione
+   condivisa non è disponibile in questa vista (es. anteprima nella chat,
+   o permessi mancanti) — vale solo su questo dispositivo. */
+const PROVA_OVERRIDES_KEY = "gsc_prova_overrides_v1";
+function getProvaOverrides(){
+  try{ return JSON.parse(localStorage.getItem(PROVA_OVERRIDES_KEY)) || {}; }catch(e){ return {}; }
+}
+function setProvaOverride(provaId, unlocked){
+  const ov = getProvaOverrides();
+  ov[provaId] = unlocked;
+  try{ localStorage.setItem(PROVA_OVERRIDES_KEY, JSON.stringify(ov)); }catch(e){}
+}
+function isProvaUnlocked(prova){
+  if(Object.prototype.hasOwnProperty.call(SHARED_PROVA_STATE, prova.id)) return SHARED_PROVA_STATE[prova.id];
+  const ov = getProvaOverrides();
+  return Object.prototype.hasOwnProperty.call(ov, prova.id) ? ov[prova.id] : prova.unlocked;
+}
+
+/* Ripubblica l'intera pagina con lo stato prove aggiornato, così TUTTI gli
+   studenti lo vedono, non solo questo dispositivo. Se non è possibile
+   (capability non concessa in questa vista, permessi mancanti, ecc.)
+   ricade sull'override locale e lo dice chiaramente. */
+async function publishProvaState(provaId, unlocked){
+  const newState = {...SHARED_PROVA_STATE, [provaId]: unlocked};
+  try{
+    if(window.claude && window.claude.use){
+      const artifactCap = await window.claude.use("artifact");
+      if(artifactCap){
+        const res = await fetch(location.href, {cache:"no-store"});
+        let rawHtml = await res.text();
+        const marker = /(<script type="application\/json" id="prova-lock-state">)([\s\S]*?)(<\/script>)/;
+        if(marker.test(rawHtml)){
+          rawHtml = rawHtml.replace(marker, (m,a,b,c)=> a + JSON.stringify(newState) + c);
+          await artifactCap.publish(rawHtml);
+          // successo: questa vista si ricarica da sola sulla nuova versione
+          return {ok:true, shared:true};
+        }
+      }
+    }
+  }catch(e){ /* niente permessi o capability non disponibile qui: ripiego locale */ }
+  setProvaOverride(provaId, unlocked);
+  SHARED_PROVA_STATE = {...SHARED_PROVA_STATE, [provaId]: unlocked};
+  return {ok:true, shared:false};
+}
+function provaIcon(provaId){
+  const p = PROVE.find(x=>x.id===provaId);
+  return p ? p.icon : "📋";
+}
+
+/* ---------------- STATE ---------------- */
+
+let state = {
+  screen:"home", // home | student-auth | student-profile | student-round | student-result | teacher-pin | teacher-hub | teacher-prove | teacher-classi | teacher-classe-detail | teacher-studenti | teacher-importa | teacher-backup | teacher-detail
+  roundIndex:0,
+  answers:{}, // per round key -> data
+  student:{nome:"", cognome:"", classe:""},
+  username:null,
+  authMode:"login", // login | signup
+  authForm:{username:"", password:"", password2:"", nome:"", cognome:"", classe:""},
+  authError:"",
+  lastProva:null,
+  currentQIdx:0,
+  bossStepIdx:0,
+  bossIdea:"",
+  multiSel:[],
+  teacherFilter:"tutte",
+  teacherDetailKey:null,
+  lastImportCount:0
+};
+
+const $app = document.getElementById("app");
+
+function render(){
+  $app.innerHTML = "";
+  if(state.screen==="home") return renderHome();
+  if(state.screen==="student-auth") return renderStudentAuth();
+  if(state.screen==="student-profile") return renderStudentProfile();
+  if(state.screen==="student-round") return renderStudentRound();
+  if(state.screen==="student-result") return renderStudentResult();
+  if(state.screen==="teacher-pin") return renderTeacherPin();
+  if(state.screen==="teacher-hub") return renderTeacherHub();
+  if(state.screen==="teacher-prove") return renderTeacherProve();
+  if(state.screen==="teacher-classi") return renderTeacherClassi();
+  if(state.screen==="teacher-classe-detail") return renderTeacherClasseDetail();
+  if(state.screen==="teacher-studenti") return renderTeacherStudenti();
+  if(state.screen==="teacher-importa") return renderTeacherImporta();
+  if(state.screen==="teacher-backup") return renderTeacherBackup();
+  if(state.screen==="teacher-detail") return renderTeacherDetail();
+}
+
+function topbar(activeMode){
+  const bar = el("div","topbar");
+  const brand = el("div","brand"); brand.innerHTML = "Graphic <span>Skills Check</span>";
+  bar.appendChild(brand);
+  bar.appendChild(document.createTextNode(""));
+  return bar;
+}
+
+function el(tag, cls, txt){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(txt!==undefined) e.textContent = txt;
+  return e;
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------------- HOME ---------------- */
+
+function renderHome(){
+  $app.appendChild(topbar());
+
+  const hero = el("div","home-hero");
+  const h1 = el("h1","", "Quanto vali sul mercato di oggi?");
+  const p = el("p","", "Ogni sfida è un piccolo incarico vero. Rispondi come lo farebbe un professionista — e scopri quanto ti pagherebbe davvero un cliente.");
+  hero.appendChild(h1); hero.appendChild(p);
+  $app.appendChild(hero);
+
+  const cards = el("div","home-cards");
+
+  const stuCard = el("button","role-card");
+  stuCard.innerHTML = `<div class="icon">🎮</div><div class="txt"><h3>Area studente</h3><p>Accedi al tuo profilo e fai la sfida</p></div>`;
+  stuCard.onclick = ()=>{ state.screen="student-auth"; render(); };
+  cards.appendChild(stuCard);
+
+  const teaCard = el("button","role-card");
+  teaCard.innerHTML = `<div class="icon">📊</div><div class="txt"><h3>Area docente</h3><p>Prove, classi, studenti e backup</p></div>`;
+  teaCard.onclick = ()=>{ state.screen="teacher-pin"; render(); };
+  cards.appendChild(teaCard);
+
+  $app.appendChild(cards);
+
+  const foot = el("footer","foot");
+  foot.appendChild(el("p","", "Cineraw · Graphic Skills Check"));
+  $app.appendChild(foot);
+}
+
+/* ---------------- ACCOUNT STUDENTI (locali a questo dispositivo) ---------------- */
+
+const ACCOUNTS_KEY = "gsc_accounts_v1";
+
+function getAccounts(){
+  try{ return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveAccounts(a){
+  try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
+  catch(e){ showToast("Impossibile salvare il profilo su questo dispositivo"); }
+}
+function normalizeUsername(u){ return (u||"").trim().toLowerCase().replace(/\s+/g,""); }
+function calcFatturato(prove){ return (prove||[]).reduce((sum,p)=>sum+(p.gross||0), 0); }
+
+async function hashPass(pw){
+  const enc = new TextEncoder().encode(pw);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function loginSuccess(uname, acc){
+  state.username = uname;
+  state.student = {nome:acc.nome, cognome:acc.cognome, classe:acc.classe};
+  state.authForm = {username:"", password:"", password2:"", nome:"", cognome:"", classe:""};
+  state.authError = "";
+  state.screen = "student-profile";
+  render();
+}
+
+async function doSignup(){
+  const f = state.authForm;
+  const uname = normalizeUsername(f.username);
+  if(!uname || uname.length<3){ state.authError="Username troppo corto (minimo 3 caratteri)"; render(); return; }
+  if(!/^[a-z0-9._-]+$/.test(uname)){ state.authError="Usa solo lettere, numeri, punto o trattino"; render(); return; }
+  if(!f.nome.trim() || !f.cognome.trim() || !f.classe){ state.authError="Compila nome, cognome e classe"; render(); return; }
+  if(!f.password || f.password.length<4){ state.authError="Password troppo corta (minimo 4 caratteri)"; render(); return; }
+  if(f.password !== f.password2){ state.authError="Le due password non coincidono"; render(); return; }
+  const accounts = getAccounts();
+  if(accounts[uname]){ state.authError="Username già usato su questo Mac — scegline un altro"; render(); return; }
+  const passHash = await hashPass(f.password);
+  accounts[uname] = {passHash, nome:f.nome.trim(), cognome:f.cognome.trim(), classe:f.classe, credito:0, voto:null, prove:[], startedProve:{}};
+  saveAccounts(accounts);
+  loginSuccess(uname, accounts[uname]);
+}
+
+async function doLogin(){
+  const f = state.authForm;
+  const uname = normalizeUsername(f.username);
+  const accounts = getAccounts();
+  const acc = accounts[uname];
+  if(!acc){ state.authError="Nessun profilo con questo username su questo Mac. Creane uno nuovo."; render(); return; }
+  const passHash = await hashPass(f.password);
+  if(passHash !== acc.passHash){ state.authError="Password errata"; render(); return; }
+  loginSuccess(uname, acc);
+}
+
+function makePasswordField(initialValue, onChange, autocompleteVal){
+  const wrap = el("div","pwd-wrap");
+  const inp = document.createElement("input");
+  inp.type="password"; inp.value=initialValue||""; inp.placeholder="••••••";
+  inp.autocomplete = autocompleteVal || "off";
+  inp.autocapitalize = "off";
+  inp.spellcheck = false;
+  inp.oninput = e=>onChange(e.target.value);
+  wrap.appendChild(inp);
+  const toggle = el("button","pwd-toggle","Mostra");
+  toggle.type="button";
+  toggle.onclick = ()=>{
+    if(inp.type==="password"){ inp.type="text"; toggle.textContent="Nascondi"; }
+    else { inp.type="password"; toggle.textContent="Mostra"; }
+  };
+  wrap.appendChild(toggle);
+  return wrap;
+}
+
+function renderStudentAuth(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  const card = el("div","card");
+
+  const tabs = el("div","auth-tabs");
+  const tabLogin = el("button","", "Accedi");
+  const tabSignup = el("button","", "Crea profilo");
+  if(state.authMode==="login") tabLogin.classList.add("active"); else tabSignup.classList.add("active");
+  tabLogin.onclick = ()=>{ state.authMode="login"; state.authError=""; render(); };
+  tabSignup.onclick = ()=>{ state.authMode="signup"; state.authError=""; render(); };
+  tabs.appendChild(tabLogin); tabs.appendChild(tabSignup);
+  card.appendChild(tabs);
+
+  // profili già presenti su questo dispositivo -> scorciatoia per il login
+  const accounts = getAccounts();
+  const unames = Object.keys(accounts);
+  if(state.authMode==="login" && unames.length){
+    const lbl = el("div","", "Profili su questo Mac:");
+    lbl.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:500;";
+    card.appendChild(lbl);
+    const chips = el("div","saved-profiles");
+    unames.forEach(u=>{
+      const acc = accounts[u];
+      const chip = el("button","saved-chip", `${acc.nome} (${u})`);
+      chip.onclick = ()=>{ state.authForm.username = u; render(); };
+      chips.appendChild(chip);
+    });
+    card.appendChild(chips);
+  }
+
+  if(state.authError){
+    card.appendChild(el("div","auth-error", state.authError));
+  }
+
+  const f = state.authForm;
+
+  const fUser = el("div","field");
+  fUser.innerHTML = `<label>Username</label>`;
+  const inpUser = document.createElement("input");
+  inpUser.value = f.username; inpUser.placeholder = "es. marco.rossi";
+  inpUser.autocapitalize="off"; inpUser.autocomplete="username";
+  inpUser.oninput = e=>f.username = e.target.value;
+  fUser.appendChild(inpUser);
+  card.appendChild(fUser);
+
+  if(state.authMode==="signup"){
+    const fNome = el("div","field");
+    fNome.innerHTML = `<label>Nome</label>`;
+    const inpNome = document.createElement("input"); inpNome.value=f.nome; inpNome.placeholder="Marco";
+    inpNome.oninput = e=>f.nome = e.target.value;
+    fNome.appendChild(inpNome);
+    card.appendChild(fNome);
+
+    const fCogn = el("div","field");
+    fCogn.innerHTML = `<label>Cognome</label>`;
+    const inpCogn = document.createElement("input"); inpCogn.value=f.cognome; inpCogn.placeholder="Rossi";
+    inpCogn.oninput = e=>f.cognome = e.target.value;
+    fCogn.appendChild(inpCogn);
+    card.appendChild(fCogn);
+
+    const fClasse = el("div","field");
+    fClasse.innerHTML = `<label>Classe</label>`;
+    const pick = el("div","class-pick");
+    ["2ª","3ª","4ª"].forEach(c=>{
+      const b = el("button","", c);
+      if(f.classe===c) b.classList.add("sel");
+      b.onclick = ()=>{ f.classe=c; render(); };
+      pick.appendChild(b);
+    });
+    fClasse.appendChild(pick);
+    card.appendChild(fClasse);
+  }
+
+  const fPass = el("div","field");
+  fPass.innerHTML = `<label>Password</label>`;
+  fPass.appendChild(makePasswordField(f.password, v=>f.password=v, "off"));
+  card.appendChild(fPass);
+
+  if(state.authMode==="signup"){
+    const fPass2 = el("div","field");
+    fPass2.innerHTML = `<label>Ripeti password</label>`;
+    fPass2.appendChild(makePasswordField(f.password2, v=>f.password2=v, "off"));
+    card.appendChild(fPass2);
+  }
+
+  const btn = el("button","btn-primary", state.authMode==="login" ? "Accedi →" : "Crea il mio profilo →");
+  btn.onclick = ()=>{
+    btn.disabled = true;
+    const task = state.authMode==="login" ? doLogin() : doSignup();
+    task.finally(()=>{ btn.disabled = false; });
+  };
+  card.appendChild(btn);
+
+  const note = el("p","", "Il profilo resta salvato solo su questo Mac. Se ti sposti su un altro computer dovrai ricrearlo — il tuo insegnante ha comunque una copia dei tuoi risultati tramite i codici che gli invii.");
+  note.style.cssText="font-size:12px;margin-top:16px;line-height:1.55;";
+  card.appendChild(note);
+
+  screen.appendChild(card);
+  $app.appendChild(screen);
+
+  const back = el("button","btn-ghost", "← torna alla home");
+  back.style.marginTop="14px";
+  back.onclick = ()=>{ state.screen="home"; render(); };
+  screen.appendChild(back);
+}
+
+function renderStudentProfile(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+
+  const accounts = getAccounts();
+  const acc = accounts[state.username];
+  if(!acc){ state.screen="home"; state.username=null; render(); return; }
+
+  const card = el("div","card");
+
+  const top = el("div","profile-card-top");
+  const initials = (acc.nome[0]||"") + (acc.cognome[0]||"");
+  top.innerHTML = `<div class="avatar-circle">${initials.toUpperCase()}</div>`;
+  const txt = el("div","");
+  txt.appendChild(el("h2","", `${acc.nome} ${acc.cognome}`));
+  const sub = el("p","", `Classe ${acc.classe} · @${state.username}`);
+  sub.style.marginTop="3px";
+  txt.appendChild(sub);
+  top.appendChild(txt);
+  card.appendChild(top);
+
+  const stats = el("div","profile-stats");
+  const fatturato = calcFatturato(acc.prove);
+  const s1 = el("div","stat-box"); s1.innerHTML = `<div class="num">${fatturato}€</div><div class="lbl">Fatturato totale</div>`;
+  const s2 = el("div","stat-box"); s2.innerHTML = `<div class="num">${acc.credito||0}€</div><div class="lbl">Credito residuo</div>`;
+  const s3 = el("div","stat-box"); s3.innerHTML = `<div class="num">${acc.voto ?? "—"}</div><div class="lbl">Voto attuale</div>`;
+  const s4 = el("div","stat-box"); s4.innerHTML = `<div class="num">${acc.prove.length}</div><div class="lbl">Prove fatte</div>`;
+  stats.appendChild(s1); stats.appendChild(s2); stats.appendChild(s3); stats.appendChild(s4);
+  card.appendChild(stats);
+
+  // lista prove disponibili (sbloccate + bloccate + già fatte/iniziate)
+  const startedProve = acc.startedProve || {};
+  PROVE.forEach(prova=>{
+    const teacherUnlocked = isProvaUnlocked(prova);
+    const completedRecord = acc.prove.find(p=>p.provaId===prova.id);
+    const alreadyStarted = !!startedProve[prova.id];
+
+    let cardState; // "start" | "teacher-locked" | "abandoned" | "done"
+    if(completedRecord) cardState = "done";
+    else if(alreadyStarted) cardState = "abandoned";
+    else if(!teacherUnlocked) cardState = "teacher-locked";
+    else cardState = "start";
+
+    const provaCard = el("div","prova-card" + (cardState==="start" ? "" : " locked"));
+    if(cardState==="start"){
+      provaCard.innerHTML = `<div class="prova-label">Prova disponibile</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
+      const startBtn = el("button","btn-primary", `${prova.icon} Inizia →`);
+      startBtn.onclick = ()=>{
+        // segna subito la prova come "iniziata": da qui non si può più rientrare da capo,
+        // anche se lo studente esce o ricarica la pagina prima di finire.
+        const accounts = getAccounts();
+        const accRef = accounts[state.username];
+        if(accRef){
+          if(!accRef.startedProve) accRef.startedProve = {};
+          accRef.startedProve[prova.id] = true;
+          saveAccounts(accounts);
+        }
+        ACTIVE_ROUNDS = prova.rounds; ACTIVE_PROVA = prova;
+        state.roundIndex=0; state.currentQIdx=0; state.answers={}; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[];
+        state.screen="student-round"; render();
+      };
+      provaCard.appendChild(startBtn);
+    } else if(cardState==="done"){
+      provaCard.innerHTML = `<div class="prova-label">✓ Completata — voto ${completedRecord.voto}</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
+    } else if(cardState==="abandoned"){
+      provaCard.innerHTML = `<div class="prova-label">🔒 Prova già iniziata</div><h3>${prova.icon} ${prova.title}</h3><p>L'hai aperta ma non l'hai completata — non puoi rientrare per rifarla da capo.</p>`;
+    } else {
+      provaCard.innerHTML = `<div class="prova-label">🔒 Bloccata dal docente</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
+    }
+    card.appendChild(provaCard);
+  });
+
+  screen.appendChild(card);
+
+  if(acc.prove.length){
+    const histTitle = el("h3","", "Le tue prove");
+    histTitle.style.cssText="margin-top:24px;margin-bottom:12px;font-size:15px;";
+    screen.appendChild(histTitle);
+    [...acc.prove].reverse().forEach(p=>{
+      const item = el("div","hist-item");
+      const top2 = el("div","hist-top");
+      top2.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+      item.appendChild(top2);
+      const line = el("div","", `Compenso: ${p.gross}€ · Totale con credito: ${p.totale}€`);
+      line.style.fontSize="12px"; line.style.color="var(--text-dim)";
+      item.appendChild(line);
+      screen.appendChild(item);
+    });
+  }
+
+  const logoutBtn = el("button","btn-ghost", "Esci dal profilo");
+  logoutBtn.style.marginTop="16px";
+  logoutBtn.onclick = ()=>{
+    state.username=null; state.student={nome:"",cognome:"",classe:""};
+    state.screen="home"; render();
+  };
+  screen.appendChild(logoutBtn);
+
+  $app.appendChild(screen);
+}
+
+
+/* ---------------- STUDENT ROUND ROUTER ---------------- */
+
+function renderStudentRound(){
+  const round = ACTIVE_ROUNDS[state.roundIndex];
+  if(round.type==="quiz") return renderQuizRound(round);
+  if(round.type==="multi") return renderMultiRound(round);
+  if(round.type==="boss") return renderBossRound(round);
+}
+
+function progressHeader(round){
+  const wrap = el("div","progress-wrap");
+  const top = el("div","progress-top");
+  top.innerHTML = `<span class="r-label">${round.rk}</span><span class="r-count">${state.roundIndex+1} di ${ACTIVE_ROUNDS.length}</span>`;
+  wrap.appendChild(top);
+  const bar = el("div","progress-bar");
+  const fill = el("div","progress-fill");
+  fill.style.width = `${Math.round(((state.roundIndex)/ACTIVE_ROUNDS.length)*100)}%`;
+  bar.appendChild(fill);
+  wrap.appendChild(bar);
+  return wrap;
+}
+
+function roundHeader(round){
+  const h = el("div","round-header");
+  h.appendChild(el("h2","", round.title));
+  h.appendChild(el("p","sub", round.sub));
+  return h;
+}
+
+function nextRoundOrFinish(){
+  state.roundIndex++;
+  state.currentQIdx=0; state.bossStepIdx=0; state.multiSel=[];
+  if(state.roundIndex>=ACTIVE_ROUNDS.length){
+    finishProva();
+  }
+  render();
+}
+
+function finishProva(){
+  const {gross} = computeGrossEuro();
+  const accounts = getAccounts();
+  const acc = accounts[state.username];
+  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>[r.key, state.answers[r.key] ? {correct:state.answers[r.key].correct, total:state.answers[r.key].total} : null]));
+  const idea = (state.answers[BOSS_FIGHT.key] && state.answers[BOSS_FIGHT.key].idea) || "";
+
+  let prova;
+  if(acc){
+    const creditoPrima = acc.credito || 0;
+    const totale = gross + creditoPrima;
+    const voto = Math.max(1, Math.min(10, Math.floor(totale/100)));
+    const nuovoCredito = totale - voto*100;
+    prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, creditoPrima, totale, voto, rounds:roundsSnapshot, idea};
+    acc.prove.push(prova);
+    acc.credito = nuovoCredito;
+    // il voto attuale è la media di tutti i voti presi finora, non solo l'ultimo
+    const avg = acc.prove.reduce((s,p)=>s+p.voto, 0) / acc.prove.length;
+    acc.voto = Math.max(1, Math.min(10, Math.round(avg)));
+    // la prova è ora completata: tolta dalle "iniziate ma non finite" (resta comunque bloccata perché completata)
+    if(acc.startedProve) delete acc.startedProve[ACTIVE_PROVA.id];
+    saveAccounts(accounts);
+  } else {
+    // fallback, non dovrebbe succedere: profilo non trovato
+    const voto = Math.max(1, Math.min(10, Math.floor(gross/100) || 1));
+    prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, creditoPrima:0, totale:gross, voto, rounds:roundsSnapshot, idea};
+  }
+  state.lastProva = prova;
+  state.screen = "student-result";
+}
+
+/* --- quiz round --- */
+function renderQuizRound(round){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(progressHeader(round));
+  const card = el("div","card");
+  card.appendChild(roundHeader(round));
+
+  const qi = state.currentQIdx;
+  const question = round.questions[qi];
+
+  const qLabel = el("div","", `Domanda ${qi+1} di ${round.questions.length}`);
+  qLabel.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;";
+  card.appendChild(qLabel);
+
+  card.appendChild(el("div","q-text", question.q));
+
+  const opts = el("div","opts");
+  question.opts.forEach((optTxt, idx)=>{
+    const b = el("button","opt", optTxt);
+    b.onclick = ()=>{
+      if(!round.perQuestion) round.perQuestion = {};
+      round.perQuestion[qi] = idx;
+      if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length};
+      // advance
+      const isCorrect = idx===question.correct;
+      state.answers[round.key]._last = isCorrect;
+      if(!state.answers[round.key].scored) state.answers[round.key].scored = {};
+      state.answers[round.key].scored[qi] = isCorrect ? 1 : 0;
+      state.answers[round.key].correct = Object.values(state.answers[round.key].scored).reduce((a,b)=>a+b,0);
+      // small delay feel via direct advance
+      if(qi < round.questions.length-1){
+        state.currentQIdx++;
+        render();
+      } else {
+        nextRoundOrFinish();
+      }
+    };
+    opts.appendChild(b);
+  });
+  card.appendChild(opts);
+
+  screen.appendChild(card);
+  $app.appendChild(screen);
+}
+
+/* --- multi (detective) round --- */
+function renderMultiRound(round){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(progressHeader(round));
+  const card = el("div","card");
+  card.appendChild(roundHeader(round));
+
+  // which zones are currently highlighted, based on selected options
+  const activeZones = new Set();
+  state.multiSel.forEach(i=>{ round.options[i].zones.forEach(z=>activeZones.add(z)); });
+
+  const poster = el("div","poster-mock");
+  poster.innerHTML = `
+    <div class="poster-title poster-zone ${activeZones.has('title')?'hl':''}">Festa<br>della scuola</div>
+    <div class="poster-shout poster-zone ${activeZones.has('shout')?'hl':''}">Venerdì 17:15 — venite numerosi!!!</div>
+    <div class="poster-info poster-zone ${activeZones.has('info')?'hl':''}">
+      <span class="poster-chip">Palestra</span>
+      <span class="poster-chip">Aula 3</span>
+      <span class="poster-chip">Parcheggio</span>
+      <span class="poster-chip">Entrata nord</span>
+      <span class="poster-chip">Musica dal vivo</span>
+    </div>
+    <div class="poster-cta poster-zone ${activeZones.has('cta')?'hl':''}">Clicca qui</div>
+  `;
+  card.appendChild(poster);
+  card.appendChild(el("p","poster-hint", "Ogni problema che selezioni accende la zona corrispondente sulla locandina."));
+
+  card.appendChild(el("div","q-text", "Seleziona tutti i problemi che noti:"));
+
+  const opts = el("div","opts");
+  round.options.forEach((opt, idx)=>{
+    const b = el("button","opt multi", opt.t);
+    if(state.multiSel.includes(idx)) b.classList.add("chosen");
+    b.onclick = ()=>{
+      if(state.multiSel.includes(idx)) state.multiSel = state.multiSel.filter(i=>i!==idx);
+      else state.multiSel.push(idx);
+      render();
+    };
+    opts.appendChild(b);
+  });
+  card.appendChild(opts);
+
+  const btn = el("button","btn-primary", "Conferma →");
+  btn.style.marginTop="18px";
+  btn.onclick = ()=>{
+    const totalCorrect = round.options.filter(o=>o.ok).length;
+    let score=0, wrongPicks=0;
+    state.multiSel.forEach(i=>{
+      if(round.options[i].ok) score++; else wrongPicks++;
+    });
+    score = Math.max(0, score - Math.floor(wrongPicks/2));
+    state.answers[round.key] = {correct:score, total:totalCorrect};
+    nextRoundOrFinish();
+  };
+  card.appendChild(btn);
+
+  screen.appendChild(card);
+  $app.appendChild(screen);
+}
+
+/* --- boss round --- */
+function renderBossRound(round){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(progressHeader(round));
+  const card = el("div","card");
+  card.appendChild(roundHeader(round));
+
+  const brief = el("div","boss-brief"); brief.style.whiteSpace="pre-line"; brief.textContent = round.brief;
+  card.appendChild(brief);
+
+  if(state.bossStepIdx < round.steps.length){
+    const step = round.steps[state.bossStepIdx];
+    const stepLabel = el("div","", `${step.label} — passo ${state.bossStepIdx+1} di ${round.steps.length+1}`);
+    stepLabel.style.cssText = "font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;";
+    card.appendChild(stepLabel);
+    card.appendChild(el("div","q-text", `Scegli il/la ${step.label.toLowerCase()} più coerente con il brief:`));
+
+    const opts = el("div","opts");
+    step.opts.forEach(o=>{
+      const b = el("button","opt", o.t);
+      b.onclick = ()=>{
+        if(!state.answers[round.key]) state.answers[round.key] = {steps:{}, idea:"", scoreSteps:0};
+        state.answers[round.key].steps[step.key] = o.t;
+        if(o.ok) state.answers[round.key].scoreSteps = (state.answers[round.key].scoreSteps||0)+1;
+        state.bossStepIdx++;
+        render();
+      };
+      opts.appendChild(b);
+    });
+    card.appendChild(opts);
+  } else {
+    card.appendChild(el("div","q-text", round.ideaPrompt));
+    const ta = document.createElement("textarea");
+    ta.rows=3; ta.placeholder="Scrivi qui la tua idea in una frase...";
+    ta.value = state.bossIdea;
+    ta.oninput = e=>state.bossIdea = e.target.value;
+    card.appendChild(ta);
+
+    const btn = el("button","btn-primary", "Completa il brief →");
+    btn.style.marginTop="16px";
+    btn.onclick = ()=>{
+      if(!state.answers[round.key]) state.answers[round.key] = {steps:{}, scoreSteps:0};
+      state.answers[round.key].idea = state.bossIdea.trim();
+      const ideaPts = state.answers[round.key].idea.length>3 ? 2 : 0;
+      state.answers[round.key].correct = (state.answers[round.key].scoreSteps||0) + ideaPts;
+      state.answers[round.key].total = round.steps.length + 2;
+      nextRoundOrFinish();
+    };
+    card.appendChild(btn);
+  }
+
+  screen.appendChild(card);
+  $app.appendChild(screen);
+}
+
+/* ---------------- STUDENT RESULT ---------------- */
+
+function computeGrossEuro(){
+  let totalPts=0, maxPts=0;
+  ACTIVE_ROUNDS.forEach(r=>{
+    const a = state.answers[r.key];
+    if(!a) return;
+    totalPts += (a.correct||0);
+    maxPts += (a.total|| (r.questions?r.questions.length:0) );
+  });
+  if(maxPts===0) return {gross:10, totalPts, maxPts};
+  let gross = Math.round((totalPts/maxPts)*1000);
+  gross = Math.max(10, Math.min(1000, gross));
+  return {gross, totalPts, maxPts};
+}
+
+function levelForVote(voto){
+  if(voto<=3) return "Stagista";
+  if(voto<=6) return "Junior";
+  if(voto<=8) return "Professionista";
+  return "Senior / Art Director";
+}
+
+function renderStudentResult(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+
+  const prova = state.lastProva || {gross:0, creditoPrima:0, totale:0, voto:1};
+  const voto = prova.voto;
+  const level = levelForVote(voto);
+
+  const receipt = el("div","receipt");
+  const head = el("div","receipt-head");
+  head.innerHTML = `<div class="emoji">🧾</div><h2>Incarico completato</h2><p style="margin-top:4px;font-size:13px;">${provaIcon(prova.provaId)} ${prova.provaTitle||""}</p>`;
+  receipt.appendChild(head);
+
+  const rows = [
+    ["Cliente", `${state.student.nome} ${state.student.cognome}`],
+    ["Classe", state.student.classe],
+    ["Data", new Date().toLocaleDateString("it-IT")]
+  ];
+  rows.forEach(([k,v])=>{
+    const r = el("div","receipt-row");
+    r.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`;
+    receipt.appendChild(r);
+  });
+
+  ACTIVE_ROUNDS.forEach(rnd=>{
+    const a = state.answers[rnd.key];
+    const r = el("div","receipt-row");
+    const val = a ? `${a.correct}/${a.total}` : "—";
+    r.innerHTML = `<span class="k">${rnd.title}</span><span class="v">${val}</span>`;
+    receipt.appendChild(r);
+  });
+
+  const creditRow = el("div","receipt-row");
+  creditRow.innerHTML = `<span class="k">Compenso di oggi</span><span class="v">${prova.gross}€</span>`;
+  receipt.appendChild(creditRow);
+  if(prova.creditoPrima){
+    const cr2 = el("div","receipt-row");
+    cr2.innerHTML = `<span class="k">Credito precedente</span><span class="v">+${prova.creditoPrima}€</span>`;
+    receipt.appendChild(cr2);
+  }
+
+  const tot = el("div","receipt-total");
+  tot.innerHTML = `<span class="k">Totale conto</span><span class="v">${prova.totale}€</span>`;
+  receipt.appendChild(tot);
+
+  const levelTag = el("div","level-tag", `Voto: ${voto} · Livello: ${level}`);
+  receipt.appendChild(levelTag);
+
+  const savedTag = el("div","saved-tag", "✓ Salvato nel tuo profilo");
+  receipt.appendChild(savedTag);
+
+  const note = el("p","", "Il voto sul tuo profilo è la media di tutte le prove che hai completato, non solo di questa. Ora manda il codice al tuo insegnante, così ha una copia anche lui.");
+  note.style.cssText="font-size:12px;margin-top:14px;";
+  receipt.appendChild(note);
+
+  // code box
+  const payload = {
+    v:1, u:state.username,
+    n:state.student.nome.trim(), c:state.student.cognome.trim(), cl:state.student.classe,
+    provaId:prova.provaId, provaTitle:prova.provaTitle,
+    gross:prova.gross, ts:prova.ts,
+    rounds: prova.rounds, idea: prova.idea
+  };
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const shareText = `Graphic Skills Check — ${state.student.nome} ${state.student.cognome} (${state.student.classe})\nCodice risultato:\n${code}`;
+
+  const codeBox = el("div","code-box");
+  const codeLabel = el("div","", "Il tuo codice:");
+  codeLabel.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:600;";
+  codeBox.appendChild(codeLabel);
+  const ta = document.createElement("textarea"); ta.readOnly=true; ta.value=code;
+  codeBox.appendChild(ta);
+
+  const sendBtn = el("button","btn-primary", "Invia al docente →");
+  sendBtn.style.marginTop="12px";
+  sendBtn.onclick = async ()=>{
+    let shared = false;
+    if(navigator.share){
+      try{
+        await navigator.share({title:"Graphic Skills Check", text:shareText});
+        shared = true;
+        showToast("Inviato ✓");
+      }catch(e){ shared = false; } // condivisione annullata o non disponibile qui: passiamo alla copia
+    }
+    if(!shared) await copyCodeToClipboard();
+  };
+  codeBox.appendChild(sendBtn);
+
+  const copyBtn = el("button","btn-secondary", "Copia solo il codice");
+  copyBtn.style.marginTop="8px";
+  copyBtn.onclick = ()=>copyCodeToClipboard();
+  codeBox.appendChild(copyBtn);
+  receipt.appendChild(codeBox);
+
+  async function copyCodeToClipboard(){
+    try{
+      await navigator.clipboard.writeText(code);
+      showToast("Codice copiato — incollalo dove preferisci ✓");
+      return;
+    }catch(e){ /* niente Clipboard API qui, proviamo il metodo classico */ }
+    try{
+      ta.focus(); ta.select();
+      const ok = document.execCommand("copy");
+      if(ok){ showToast("Codice copiato ✓"); return; }
+    }catch(e){ /* anche questo metodo può essere bloccato dal browser */ }
+    ta.focus(); ta.select();
+    showToast("Il codice è selezionato qui sotto — premi Ctrl+C (o Cmd+C) per copiarlo");
+  }
+
+  const hint = el("p","code-hint", "\"Invia\" apre WhatsApp, Messaggi o Mail sul telefono. Su computer copia il codice: incollalo dove preferisci mandarlo al tuo insegnante.");
+  receipt.appendChild(hint);
+
+  screen.appendChild(receipt);
+
+  const backBtn = el("button","btn-primary", "Torna al mio profilo");
+  backBtn.style.marginTop="18px";
+  backBtn.onclick = ()=>{ state.answers={}; state.screen="student-profile"; render(); };
+  screen.appendChild(backBtn);
+
+  $app.appendChild(screen);
+}
+
+/* ---------------- TEACHER ---------------- */
+
+function getDB(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {students:{}};
+  }catch(e){ return {students:{}}; }
+}
+function saveDB(db){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); }catch(e){ showToast("Impossibile salvare: memoria del browser piena o bloccata"); }
+}
+function studentKey(n,c,cl){ return `${n.trim().toLowerCase()}_${c.trim().toLowerCase()}_${cl.trim().toLowerCase()}`; }
+
+function renderTeacherPin(){
+  $app.appendChild(topbar());
+  const wrap = el("div","pin-wrap");
+  wrap.appendChild(el("h2","", "Area docente"));
+  const p = el("p","", "Inserisci il PIN per accedere alla dashboard.");
+  p.style.marginTop="10px"; p.style.marginBottom="24px";
+  wrap.appendChild(p);
+
+  const field = el("div","field");
+  const inp = document.createElement("input");
+  inp.type="password"; inp.inputMode="numeric"; inp.maxLength=6; inp.placeholder="••••••";
+  field.appendChild(inp);
+  wrap.appendChild(field);
+
+  const btn = el("button","btn-primary", "Entra");
+  btn.onclick = ()=>{
+    if(inp.value === "030303"){
+      state.screen="teacher-hub"; render();
+    } else {
+      showToast("PIN errato — riprova");
+    }
+  };
+  wrap.appendChild(btn);
+
+  const back = el("button","btn-ghost", "← torna indietro");
+  back.style.marginTop="12px";
+  back.onclick = ()=>{ state.screen="home"; render(); };
+  wrap.appendChild(back);
+
+  $app.appendChild(wrap);
+}
+
+function importCodes(text){
+  const db = getDB();
+  const lines = text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+  let imported=0, failed=0;
+  lines.forEach(code=>{
+    try{
+      const payload = JSON.parse(decodeURIComponent(escape(atob(code))));
+      if(!payload.n || !payload.cl) throw new Error("bad payload");
+      const key = payload.u ? ("u_"+payload.u) : studentKey(payload.n, payload.c, payload.cl);
+      if(!db.students[key]) db.students[key] = {nome:payload.n, cognome:payload.c, classe:payload.cl, username:payload.u||null, credito:0, prove:[]};
+      const s = db.students[key];
+      const totale = payload.gross + s.credito;
+      const voto = Math.max(1, Math.min(10, Math.floor(totale/100)));
+      const nuovoCredito = totale - voto*100;
+      s.prove.push({
+        ts:payload.ts, provaId:payload.provaId||null, provaTitle:payload.provaTitle||"Prova",
+        gross:payload.gross, creditoPrima:s.credito, totale, voto,
+        rounds:payload.rounds, idea:payload.idea
+      });
+      s.credito = nuovoCredito;
+      const avg = s.prove.reduce((sum,p)=>sum+p.voto, 0) / s.prove.length;
+      s.voto = Math.max(1, Math.min(10, Math.round(avg)));
+      imported++;
+    }catch(e){ failed++; }
+  });
+  saveDB(db);
+  return {imported, failed};
+}
+
+function renderTeacherHub(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+
+  const hero = el("div","home-hero");
+  hero.style.marginTop="4px"; hero.style.marginBottom="26px";
+  hero.appendChild(el("h1","", "Spazio docente"));
+  const heroP = el("p","", "Gestisci prove, classi, studenti e backup.");
+  hero.appendChild(heroP);
+  screen.appendChild(hero);
+
+  const db = getDB();
+  const students = Object.values(db.students);
+  const accounts = getAccounts();
+
+  const tiles = [
+    {id:"teacher-prove", icon:"🗓️", title:"Prove", desc:"Sblocca o blocca le prove disponibili"},
+    {id:"teacher-classi", icon:"🏫", title:"Classi", desc:`Sfoglia per classe — ${students.length} studenti con risultati`},
+    {id:"teacher-studenti", icon:"👥", title:"Studenti registrati", desc:`${Object.keys(accounts).length} profili su questo dispositivo`},
+    {id:"teacher-importa", icon:"📥", title:"Importa codici", desc:"Incolla i codici ricevuti dagli studenti"},
+    {id:"teacher-backup", icon:"💾", title:"Backup", desc:"Esporta o ripristina tutti i dati"}
+  ];
+
+  const grid = el("div","home-cards");
+  tiles.forEach(t=>{
+    const tile = el("button","role-card");
+    tile.innerHTML = `<div class="icon">${t.icon}</div><div class="txt"><h3>${t.title}</h3><p>${t.desc}</p></div>`;
+    tile.onclick = ()=>{ state.screen = t.id; render(); };
+    grid.appendChild(tile);
+  });
+  screen.appendChild(grid);
+
+  const back = el("button","btn-ghost", "← esci dall'area docente");
+  back.style.marginTop="20px";
+  back.onclick = ()=>{ state.screen="home"; render(); };
+  screen.appendChild(back);
+
+  $app.appendChild(screen);
+}
+
+function hubBackButton(){
+  const back = el("button","btn-ghost", "← torna allo spazio docente");
+  back.style.marginTop="18px";
+  back.onclick = ()=>{ state.screen="teacher-hub"; render(); };
+  return back;
+}
+
+function sectionTitle(icon, title){
+  const wrap = el("div","");
+  wrap.style.marginBottom="22px";
+  wrap.innerHTML = `<h1 style="font-size:26px;">${icon} ${title}</h1>`;
+  return wrap;
+}
+
+function renderTeacherProve(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("🗓️","Prove"));
+
+  const provaMgmt = el("div","card");
+  const pmSub = el("p","", "Sblocca la prova che vuoi far fare adesso, blocca le altre.");
+  pmSub.style.cssText="margin-bottom:16px;";
+  provaMgmt.appendChild(pmSub);
+
+  PROVE.forEach(prova=>{
+    const unlocked = isProvaUnlocked(prova);
+    const row = el("div","prova-row");
+    const info = el("div","prova-row-info");
+    info.innerHTML = `<strong>${prova.icon} ${prova.title}</strong><span>${unlocked?"Sbloccata — visibile agli studenti":"Bloccata"}</span>`;
+    row.appendChild(info);
+    const toggle = el("button", "prova-toggle" + (unlocked?" on":""), unlocked ? "Sbloccata" : "Bloccata");
+    toggle.onclick = async ()=>{
+      toggle.disabled = true;
+      toggle.textContent = "Aggiorno...";
+      const res = await publishProvaState(prova.id, !unlocked);
+      if(res.shared){
+        showToast("Aggiornato per tutti gli studenti ✓");
+        // dopo una publish riuscita questa stessa vista si ricarica da sola
+      } else {
+        showToast("Aggiornato solo su questo dispositivo — condivisione non disponibile qui");
+        toggle.disabled = false;
+        render();
+      }
+    };
+    row.appendChild(toggle);
+    provaMgmt.appendChild(row);
+  });
+
+  const note = el("p","", "L'interruttore prova ad aggiornare subito tutti gli studenti (funziona quando apri questo link da proprietario dell'artifact). Se in questa vista non è possibile — es. anteprima nella chat, o permessi mancanti — aggiorna solo questo dispositivo e te lo dice chiaramente.");
+  note.style.cssText="font-size:12px;margin-top:14px;line-height:1.55;";
+  provaMgmt.appendChild(note);
+
+  screen.appendChild(provaMgmt);
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
+}
+
+function renderTeacherImporta(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("📥","Importa codici"));
+
+  const card = el("div","card");
+  const p = el("p","", "Incolla uno o più codici ricevuti dagli studenti (uno per riga).");
+  p.style.marginBottom="14px";
+  card.appendChild(p);
+
+  const importBox = el("div","import-box");
+  const ta = document.createElement("textarea");
+  ta.placeholder = "Incolla qui i codici...";
+  importBox.appendChild(ta);
+  card.appendChild(importBox);
+
+  const importBtn = el("button","btn-primary", "Importa e calcola voti");
+  importBtn.style.marginTop="10px";
+  importBtn.onclick = ()=>{
+    if(!ta.value.trim()) return;
+    const res = importCodes(ta.value);
+    ta.value="";
+    showToast(`Importati ${res.imported} · falliti ${res.failed}`);
+    render();
+  };
+  card.appendChild(importBtn);
+  screen.appendChild(card);
+
+  const goClassi = el("button","btn-secondary", "Vai alle Classi per vedere i risultati →");
+  goClassi.style.marginTop="14px";
+  goClassi.onclick = ()=>{ state.screen="teacher-classi"; render(); };
+  screen.appendChild(goClassi);
+
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
+}
+
+function renderTeacherClassi(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("🏫","Classi"));
+
+  const db = getDB();
+  const students = Object.values(db.students);
+  const classi = ["2ª","3ª","4ª"];
+
+  const grid = el("div","home-cards");
+  classi.forEach(c=>{
+    const inClass = students.filter(s=>s.classe===c);
+    const tile = el("button","role-card");
+    const avgVoto = inClass.length ? (inClass.reduce((s,x)=>s+(x.voto||0),0)/inClass.length).toFixed(1) : "—";
+    tile.innerHTML = `<div class="icon">🎓</div><div class="txt"><h3>Classe ${c}</h3><p>${inClass.length} studenti con risultati · media voto ${avgVoto}</p></div>`;
+    tile.onclick = ()=>{ state.teacherFilter=c; state.screen="teacher-classe-detail"; render(); };
+    grid.appendChild(tile);
+  });
+  const tileAll = el("button","role-card");
+  tileAll.innerHTML = `<div class="icon">📋</div><div class="txt"><h3>Tutte le classi</h3><p>${students.length} studenti in totale</p></div>`;
+  tileAll.onclick = ()=>{ state.teacherFilter="tutte"; state.screen="teacher-classe-detail"; render(); };
+  grid.appendChild(tileAll);
+
+  screen.appendChild(grid);
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
+}
+
+function renderTeacherClasseDetail(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  const label = state.teacherFilter==="tutte" ? "Tutte le classi" : `Classe ${state.teacherFilter}`;
+  screen.appendChild(sectionTitle("🎓", label));
+
+  const db = getDB();
+  const students = Object.entries(db.students).map(([key,s])=>({key,...s}));
+  const classes = Array.from(new Set(students.map(s=>s.classe))).sort();
+
+  if(classes.length){
+    const filterBar = el("div","class-filter");
+    const allBtn = el("button","", "Tutte");
+    if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+    allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
+    filterBar.appendChild(allBtn);
+    classes.forEach(c=>{
+      const b = el("button","", c);
+      if(state.teacherFilter===c) b.classList.add("sel");
+      b.onclick=()=>{ state.teacherFilter=c; render(); };
+      filterBar.appendChild(b);
+    });
+    screen.appendChild(filterBar);
+  }
+
+  const filtered = students.filter(s=> state.teacherFilter==="tutte" || s.classe===state.teacherFilter)
+    .sort((a,b)=> (a.classe+a.cognome).localeCompare(b.classe+b.cognome));
+
+  if(!filtered.length){
+    const empty = el("div","empty-state");
+    empty.innerHTML = `<p>Ancora nessuno studente importato per questa classe.<br>Vai in "Importa codici" per aggiungerne.</p>`;
+    screen.appendChild(empty);
+  } else {
+    const table = document.createElement("table");
+    table.className="stu-table";
+    table.innerHTML = `<thead><tr><th>Studente</th><th>Classe</th><th>Fatturato</th><th>Credito</th><th>Voto</th></tr></thead>`;
+    const tbody = document.createElement("tbody");
+    filtered.forEach(s=>{
+      const tr = document.createElement("tr");
+      const voteClass = s.voto<=4?"low":s.voto<=7?"mid":"high";
+      tr.innerHTML = `<td>${s.cognome} ${s.nome}${s.username?`<br><span style="color:var(--text-dim);font-size:11px;">@${s.username}</span>`:""}</td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito}€</td><td><span class="vote-pill ${voteClass}">${s.voto ?? "—"}</span></td>`;
+      tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.screen="teacher-detail"; render(); };
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    screen.appendChild(table);
+  }
+
+  const toolbar = el("div","toolbar");
+  const exportBtn = el("button","btn-secondary", "Esporta CSV");
+  exportBtn.onclick = ()=>exportCSV(filtered);
+  toolbar.appendChild(exportBtn);
+  screen.appendChild(toolbar);
+
+  const back = el("button","btn-ghost", "← torna alle Classi");
+  back.style.marginTop="14px";
+  back.onclick = ()=>{ state.screen="teacher-classi"; render(); };
+  screen.appendChild(back);
+
+  $app.appendChild(screen);
+}
+
+function renderTeacherStudenti(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("👥","Studenti registrati"));
+
+  const accCard = el("div","card");
+  const accSub = el("p","", "Account (username + password) creati su questo dispositivo. Sono diversi dagli studenti importati nelle Classi — questi vivono solo su questo Mac.");
+  accSub.style.cssText="margin-bottom:14px;";
+  accCard.appendChild(accSub);
+
+  const accounts = getAccounts();
+  const accEntries = Object.entries(accounts);
+
+  if(!accEntries.length){
+    const empty = el("p","", "Nessun profilo studente creato su questo dispositivo.");
+    empty.style.fontSize="13px";
+    accCard.appendChild(empty);
+  } else {
+    accEntries.sort((a,b)=>(a[1].classe+a[1].cognome).localeCompare(b[1].classe+b[1].cognome)).forEach(([uname, acc])=>{
+      const row = el("div","prova-row");
+      const info = el("div","prova-row-info");
+      info.innerHTML = `<strong>${acc.cognome} ${acc.nome} <span style="color:var(--text-dim);font-weight:500;">@${uname}</span></strong><span>${acc.classe} · ${acc.prove.length} prove · fatturato ${calcFatturato(acc.prove)}€ · credito ${acc.credito||0}€ · voto ${acc.voto ?? "—"}</span>`;
+      row.appendChild(info);
+      const delBtn = el("button","prova-toggle", "Elimina");
+      delBtn.onclick = ()=>{
+        if(confirm(`Eliminare il profilo di ${acc.nome} ${acc.cognome} (@${uname}) da questo dispositivo? Se ha già inviato i codici, i suoi risultati restano nelle Classi. Se non li ha inviati, andranno persi. Operazione non reversibile.`)){
+          const accs = getAccounts();
+          delete accs[uname];
+          saveAccounts(accs);
+          render();
+        }
+      };
+      row.appendChild(delBtn);
+      accCard.appendChild(row);
+    });
+  }
+  screen.appendChild(accCard);
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
+}
+
+function renderTeacherBackup(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("💾","Backup"));
+
+  const backupCard = el("div","card");
+  const backupSub = el("p","", "Esporta un file con tutti i dati di questo dispositivo (profili studenti + classi importate). Tienilo da parte, soprattutto prima che un tecnico resetti i Mac del laboratorio.");
+  backupSub.style.cssText="margin-bottom:14px;";
+  backupCard.appendChild(backupSub);
+
+  const exportBackupBtn = el("button","btn-primary", "Esporta backup completo (.json)");
+  exportBackupBtn.onclick = ()=>exportBackup();
+  backupCard.appendChild(exportBackupBtn);
+
+  const importLbl = el("div","", "Ripristina da un backup:");
+  importLbl.style.cssText="font-size:12px;color:var(--text-dim);margin:18px 0 8px;font-weight:600;";
+  backupCard.appendChild(importLbl);
+  const importArea = document.createElement("textarea");
+  importArea.placeholder = "Incolla qui il contenuto del file .json esportato...";
+  importArea.style.cssText = "width:100%;height:90px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;color:var(--text);padding:12px 14px;font-family:monospace;font-size:11px;";
+  backupCard.appendChild(importArea);
+
+  const importBackupBtn = el("button","btn-secondary", "Importa backup");
+  importBackupBtn.style.marginTop="10px";
+  importBackupBtn.onclick = ()=>{
+    if(!importArea.value.trim()) return;
+    try{
+      const parsed = JSON.parse(importArea.value);
+      const res = mergeBackup(parsed);
+      importArea.value = "";
+      showToast(`Aggiunti: ${res.addedAcc} profili, ${res.addedStu} studenti nuovi, ${res.mergedStu} aggiornati`);
+      render();
+    }catch(e){
+      showToast("File non valido — controlla di aver incollato tutto il contenuto");
+    }
+  };
+  backupCard.appendChild(importBackupBtn);
+
+  const importNote = el("p","", "L'importazione non cancella e non sovrascrive mai nulla: aggiunge solo i profili e le prove che non hai già su questo dispositivo.");
+  importNote.style.cssText="font-size:12px;margin-top:12px;line-height:1.5;";
+  backupCard.appendChild(importNote);
+
+  screen.appendChild(backupCard);
+
+  const dangerCard = el("div","card");
+  dangerCard.style.marginTop="16px";
+  dangerCard.appendChild(el("h2","", "Zona pericolosa"));
+  const resetBtn = el("button","btn-secondary", "Azzera dati docente (classi importate)");
+  resetBtn.style.marginTop="12px";
+  resetBtn.onclick = ()=>{
+    if(confirm("Cancellare tutti gli studenti e i crediti importati su questo dispositivo? L'operazione non è reversibile — esporta prima un backup se non sei sicuro.")){
+      localStorage.removeItem(STORAGE_KEY);
+      render();
+    }
+  };
+  dangerCard.appendChild(resetBtn);
+  screen.appendChild(dangerCard);
+
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
+}
+
+async function saveFile(filename, dataStr){
+  try{
+    if(window.claude && window.claude.use){
+      const downloads = await window.claude.use("downloads");
+      if(downloads){
+        await downloads.save({filename, data: dataStr});
+        showToast("File salvato ✓");
+        return;
+      }
+    }
+  }catch(err){
+    if(err && err.code==="declined") return; // l'utente ha annullato, nessun errore da mostrare
+    showToast("Salvataggio non riuscito — riprova");
+    return;
+  }
+  // fallback (fuori da claude.ai, es. dopo il passaggio a un dominio proprio)
+  try{
+    const blob = new Blob([dataStr], {type:"text/plain;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }catch(e){ showToast("Salvataggio non riuscito su questo dispositivo"); }
+}
+
+function exportCSV(students){
+  let csv = "Cognome,Nome,Classe,NumeroProve,CreditoResiduo,VotoAttuale\n";
+  students.forEach(s=>{
+    csv += `${s.cognome},${s.nome},${s.classe},${s.prove.length},${s.credito},${s.voto ?? ""}\n`;
+  });
+  saveFile("graphic_skills_check.csv", csv);
+}
+
+function exportBackup(){
+  const backup = {v:1, exportedAt:Date.now(), accounts:getAccounts(), teacherDB:getDB()};
+  const dateStr = new Date().toISOString().slice(0,10);
+  saveFile(`gsc_backup_${dateStr}.json`, JSON.stringify(backup, null, 2));
+}
+
+function mergeBackup(parsed){
+  let addedAcc=0, skippedAcc=0, addedStu=0, mergedStu=0;
+  if(parsed.accounts){
+    const accounts = getAccounts();
+    Object.keys(parsed.accounts).forEach(u=>{
+      if(!accounts[u]){ accounts[u] = parsed.accounts[u]; addedAcc++; }
+      else { skippedAcc++; }
+    });
+    saveAccounts(accounts);
+  }
+  if(parsed.teacherDB && parsed.teacherDB.students){
+    const db = getDB();
+    Object.keys(parsed.teacherDB.students).forEach(k=>{
+      const incoming = parsed.teacherDB.students[k];
+      if(!db.students[k]){ db.students[k] = incoming; addedStu++; }
+      else {
+        const existing = db.students[k];
+        const existingTs = new Set(existing.prove.map(p=>p.ts));
+        let addedHere = 0;
+        incoming.prove.forEach(p=>{
+          if(!existingTs.has(p.ts)){ existing.prove.push(p); addedHere++; }
+        });
+        if(addedHere>0){
+          existing.prove.sort((a,b)=>a.ts-b.ts);
+          const last = existing.prove[existing.prove.length-1];
+          existing.credito = last.totale - last.voto*100;
+          const avg = existing.prove.reduce((sum,p)=>sum+p.voto, 0) / existing.prove.length;
+          existing.voto = Math.max(1, Math.min(10, Math.round(avg)));
+          mergedStu++;
+        }
+      }
+    });
+    saveDB(db);
+  }
+  return {addedAcc, skippedAcc, addedStu, mergedStu};
+}
+
+function renderTeacherDetail(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+
+  const db = getDB();
+  const s = db.students[state.teacherDetailKey];
+  if(!s){ state.screen="teacher-classe-detail"; render(); return; }
+
+  const back = el("button","btn-ghost detail-back", "← torna alla lista");
+  back.onclick = ()=>{ state.screen="teacher-classe-detail"; render(); };
+  screen.appendChild(back);
+
+  const card = el("div","card");
+  card.appendChild(el("h2","", `${s.cognome} ${s.nome}`));
+  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${s.voto ?? "—"}`);
+  sub.style.marginTop="6px";
+  card.appendChild(sub);
+  screen.appendChild(card);
+
+  const histTitle = el("h3","", "Storico prove");
+  histTitle.style.cssText="margin-top:22px;margin-bottom:10px;font-size:15px;";
+  screen.appendChild(histTitle);
+
+  [...s.prove].reverse().forEach((p,i)=>{
+    const item = el("div","hist-item");
+    const top = el("div","hist-top");
+    top.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+    item.appendChild(top);
+    const line = el("div","", `Compenso: ${p.gross}€ · Credito precedente: ${p.creditoPrima}€ · Totale: ${p.totale}€`);
+    line.style.fontSize="12px"; line.style.color="var(--text-dim)";
+    item.appendChild(line);
+
+    const bd = el("div","breakdown");
+    let bdHtml = "";
+    if(p.rounds){
+      Object.keys(p.rounds).forEach(k=>{
+        const rr = p.rounds[k];
+        if(rr){
+          const title = (ROUND_REGISTRY[k] && ROUND_REGISTRY[k].title) || k;
+          bdHtml += `${title}: ${rr.correct}/${rr.total}<br>`;
+        }
+      });
+    }
+    if(p.idea) bdHtml += `<br><em>Idea boss fight: "${p.idea}"</em>`;
+    bd.innerHTML = bdHtml;
+    item.appendChild(bd);
+
+    screen.appendChild(item);
+  });
+
+  $app.appendChild(screen);
+}
+
+/* ---------------- INIT ---------------- */
+render();
+</script>
+</body>
+</html>
