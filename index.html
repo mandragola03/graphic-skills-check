@@ -170,10 +170,10 @@ button:active{transform:scale(0.98);}
   color:var(--text-dim);font-size:12px;font-weight:600;padding:7px 11px;
 }
 .pwd-toggle:hover{color:var(--text);border-color:var(--teal);}
-.class-pick{display:flex;gap:9px;}
+.class-pick{display:flex;gap:7px;}
 .class-pick button{
-  flex:1;padding:13px 0;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);
-  color:var(--text);font-weight:600;font-size:15px;
+  flex:1;padding:12px 4px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--text);font-weight:600;font-size:13px;
 }
 .class-pick button.sel{border-color:var(--gold);background:rgba(242,184,7,.12);color:var(--gold);}
 
@@ -400,13 +400,20 @@ footer.foot.wide p{
 }
 .prova-toggle.on{background:rgba(79,214,122,.15);border-color:var(--green);color:var(--green);}
 
+.class-visibility-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.vis-chip{
+  padding:9px 14px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--text-dim);font-size:12.5px;font-weight:700;
+}
+.vis-chip.on{background:rgba(79,214,122,.15);border-color:var(--green);color:var(--green);}
+
 @media (max-width:420px){
   .home-hero h1{font-size:29px;}
 }
 </style>
 </head>
 <body>
-<script type="application/json" id="prova-lock-state">{"riepilogo-grafica-01":true,"cultura-grafica-01":true}</script>
+<script type="application/json" id="prova-lock-state">{"riepilogo-grafica-01":["3ª Grafica"],"cultura-grafica-01":["2ª Grafica","3ª Grafica","4ª Grafica"]}</script>
 <div id="app"></div>
 <div class="toast" id="toast"></div>
 
@@ -646,13 +653,15 @@ const ROUND_REGISTRY = {};
    docente può poi sovrascriverlo dalla sua dashboard (vedi PROVA_OVERRIDES_KEY) —
    quella modifica però vale solo sul dispositivo su cui la fa, finché l'app
    non ha un backend condiviso (vedi nota in dashboard docente). */
+const TUTTE_LE_CLASSI = ["2ª Grafica","3ª Grafica","4ª Grafica"];
+
 const PROVE = [
   {
     id:"riepilogo-grafica-01",
     icon:"🗓️",
     title:"Cose da fare: Prova numero 1 · giornata 17 settembre 2026",
     desc:"Grafica, Illustrator, Photoshop e casi pratici — 6 round, circa 20 minuti.",
-    unlocked:true,
+    visibleTo:["3ª Grafica"],
     rounds: ROUNDS_RIEPILOGO
   },
   {
@@ -660,7 +669,7 @@ const PROVE = [
     icon:"⚡",
     title:"Cose da fare: Straordinario quiz · 10 domande",
     desc:"10 domande a raffica sul mondo del design: nomi, curiosità, perché le cose si chiamano così.",
-    unlocked:true,
+    visibleTo: TUTTE_LE_CLASSI.slice(),
     rounds: ROUNDS_CULTURA
   }
 ];
@@ -687,23 +696,28 @@ const PROVA_OVERRIDES_KEY = "gsc_prova_overrides_v1";
 function getProvaOverrides(){
   try{ return JSON.parse(localStorage.getItem(PROVA_OVERRIDES_KEY)) || {}; }catch(e){ return {}; }
 }
-function setProvaOverride(provaId, unlocked){
+function setProvaOverride(provaId, visibleTo){
   const ov = getProvaOverrides();
-  ov[provaId] = unlocked;
+  ov[provaId] = visibleTo;
   try{ localStorage.setItem(PROVA_OVERRIDES_KEY, JSON.stringify(ov)); }catch(e){}
 }
-function isProvaUnlocked(prova){
+/* Elenco classi (array) a cui una prova è oggi visibile — array vuoto = nascosta a tutti. */
+function getProvaVisibility(prova){
   if(Object.prototype.hasOwnProperty.call(SHARED_PROVA_STATE, prova.id)) return SHARED_PROVA_STATE[prova.id];
   const ov = getProvaOverrides();
-  return Object.prototype.hasOwnProperty.call(ov, prova.id) ? ov[prova.id] : prova.unlocked;
+  if(Object.prototype.hasOwnProperty.call(ov, prova.id)) return ov[prova.id];
+  return prova.visibleTo;
+}
+function isProvaVisibleForClasse(prova, classe){
+  return getProvaVisibility(prova).includes(classe);
 }
 
-/* Ripubblica l'intera pagina con lo stato prove aggiornato, così TUTTI gli
-   studenti lo vedono, non solo questo dispositivo. Se non è possibile
+/* Ripubblica l'intera pagina con la visibilità prove aggiornata, così TUTTI
+   gli studenti la vedono, non solo questo dispositivo. Se non è possibile
    (capability non concessa in questa vista, permessi mancanti, ecc.)
    ricade sull'override locale e lo dice chiaramente. */
-async function publishProvaState(provaId, unlocked){
-  const newState = {...SHARED_PROVA_STATE, [provaId]: unlocked};
+async function publishProvaState(provaId, visibleTo){
+  const newState = {...SHARED_PROVA_STATE, [provaId]: visibleTo};
   try{
     if(window.claude && window.claude.use){
       const artifactCap = await window.claude.use("artifact");
@@ -720,8 +734,8 @@ async function publishProvaState(provaId, unlocked){
       }
     }
   }catch(e){ /* niente permessi o capability non disponibile qui: ripiego locale */ }
-  setProvaOverride(provaId, unlocked);
-  SHARED_PROVA_STATE = {...SHARED_PROVA_STATE, [provaId]: unlocked};
+  setProvaOverride(provaId, visibleTo);
+  SHARED_PROVA_STATE = {...SHARED_PROVA_STATE, [provaId]: visibleTo};
   return {ok:true, shared:false};
 }
 function provaIcon(provaId){
@@ -971,7 +985,7 @@ function renderStudentAuth(){
     const fClasse = el("div","field");
     fClasse.innerHTML = `<label>Classe</label>`;
     const pick = el("div","class-pick");
-    ["2ª","3ª","4ª"].forEach(c=>{
+    ["2ª Grafica","3ª Grafica","4ª Grafica"].forEach(c=>{
       const b = el("button","", c);
       if(f.classe===c) b.classList.add("sel");
       b.onclick = ()=>{ f.classe=c; render(); };
@@ -1044,17 +1058,21 @@ function renderStudentProfile(){
   stats.appendChild(s1); stats.appendChild(s2); stats.appendChild(s3); stats.appendChild(s4);
   card.appendChild(stats);
 
-  // lista prove disponibili (sbloccate + bloccate + già fatte/iniziate)
+  // lista prove disponibili alla classe dello studente (già fatte/iniziate/da fare)
   const startedProve = acc.startedProve || {};
-  PROVE.forEach(prova=>{
-    const teacherUnlocked = isProvaUnlocked(prova);
+  const visibleProve = PROVE.filter(p=>isProvaVisibleForClasse(p, acc.classe));
+  if(!visibleProve.length){
+    const empty = el("p","", "Il tuo insegnante non ha ancora assegnato nessuna prova alla tua classe.");
+    empty.style.cssText = "font-size:13px;background:var(--surface-2);border-radius:14px;padding:14px 16px;";
+    card.appendChild(empty);
+  }
+  visibleProve.forEach(prova=>{
     const completedRecord = acc.prove.find(p=>p.provaId===prova.id);
     const alreadyStarted = !!startedProve[prova.id];
 
-    let cardState; // "start" | "teacher-locked" | "abandoned" | "done"
+    let cardState; // "start" | "abandoned" | "done"
     if(completedRecord) cardState = "done";
     else if(alreadyStarted) cardState = "abandoned";
-    else if(!teacherUnlocked) cardState = "teacher-locked";
     else cardState = "start";
 
     const provaCard = el("div","prova-card" + (cardState==="start" ? "" : " locked"));
@@ -1078,10 +1096,8 @@ function renderStudentProfile(){
       provaCard.appendChild(startBtn);
     } else if(cardState==="done"){
       provaCard.innerHTML = `<div class="prova-label">✓ Completata — voto ${completedRecord.voto}</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
-    } else if(cardState==="abandoned"){
-      provaCard.innerHTML = `<div class="prova-label">🔒 Prova già iniziata</div><h3>${prova.icon} ${prova.title}</h3><p>L'hai aperta ma non l'hai completata — non puoi rientrare per rifarla da capo.</p>`;
     } else {
-      provaCard.innerHTML = `<div class="prova-label">🔒 Bloccata dal docente</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
+      provaCard.innerHTML = `<div class="prova-label">🔒 Prova già iniziata</div><h3>${prova.icon} ${prova.title}</h3><p>L'hai aperta ma non l'hai completata — non puoi rientrare per rifarla da capo.</p>`;
     }
     card.appendChild(provaCard);
   });
@@ -1456,6 +1472,8 @@ function renderStudentResult(){
       }catch(e){ shared = false; } // condivisione annullata o non disponibile qui: passiamo alla copia
     }
     if(!shared) await copyCodeToClipboard();
+    sendBtn.disabled = true;
+    sendBtn.textContent = "✓ Inviato";
   };
   codeBox.appendChild(sendBtn);
 
@@ -1586,7 +1604,6 @@ function renderTeacherHub(){
     {id:"teacher-prove", icon:"🗓️", title:"Prove", desc:"Sblocca o blocca le prove disponibili"},
     {id:"teacher-classi", icon:"🏫", title:"Classi", desc:`Sfoglia per classe — ${students.length} studenti con risultati`},
     {id:"teacher-studenti", icon:"👥", title:"Studenti registrati", desc:`${Object.keys(accounts).length} profili su questo dispositivo`},
-    {id:"teacher-importa", icon:"📥", title:"Importa codici", desc:"Incolla i codici ricevuti dagli studenti"},
     {id:"teacher-backup", icon:"💾", title:"Backup", desc:"Esporta o ripristina tutti i dati"}
   ];
 
@@ -1626,40 +1643,63 @@ function renderTeacherProve(){
   const screen = el("div","screen");
   screen.appendChild(sectionTitle("🗓️","Prove"));
 
-  const provaMgmt = el("div","card");
-  const pmSub = el("p","", "Sblocca la prova che vuoi far fare adesso, blocca le altre.");
-  pmSub.style.cssText="margin-bottom:16px;";
-  provaMgmt.appendChild(pmSub);
-
   PROVE.forEach(prova=>{
-    const unlocked = isProvaUnlocked(prova);
-    const row = el("div","prova-row");
-    const info = el("div","prova-row-info");
-    info.innerHTML = `<strong>${prova.icon} ${prova.title}</strong><span>${unlocked?"Sbloccata — visibile agli studenti":"Bloccata"}</span>`;
-    row.appendChild(info);
-    const toggle = el("button", "prova-toggle" + (unlocked?" on":""), unlocked ? "Sbloccata" : "Bloccata");
-    toggle.onclick = async ()=>{
-      toggle.disabled = true;
-      toggle.textContent = "Aggiorno...";
-      const res = await publishProvaState(prova.id, !unlocked);
-      if(res.shared){
-        showToast("Aggiornato per tutti gli studenti ✓");
-        // dopo una publish riuscita questa stessa vista si ricarica da sola
-      } else {
-        showToast("Aggiornato solo su questo dispositivo — condivisione non disponibile qui");
-        toggle.disabled = false;
-        render();
-      }
-    };
-    row.appendChild(toggle);
-    provaMgmt.appendChild(row);
+    const visibleTo = getProvaVisibility(prova);
+    const provaMgmt = el("div","card");
+    provaMgmt.style.marginBottom = "16px";
+
+    const head = el("div","", "");
+    head.innerHTML = `<h3 style="font-size:15px;font-weight:700;margin-bottom:3px;">${prova.icon} ${prova.title}</h3>`;
+    provaMgmt.appendChild(head);
+
+    const statusLine = el("p","", visibleTo.length ? `Visibile a: ${visibleTo.join(", ")}` : "Nascosta a tutte le classi");
+    statusLine.style.cssText = "font-size:12.5px;margin:4px 0 12px;";
+    provaMgmt.appendChild(statusLine);
+
+    const chipRow = el("div","class-visibility-chips");
+    TUTTE_LE_CLASSI.forEach(classe=>{
+      const on = visibleTo.includes(classe);
+      const chip = el("button", "vis-chip" + (on?" on":""), classe);
+      chip.onclick = async ()=>{
+        const current = getProvaVisibility(prova);
+        const next = current.includes(classe) ? current.filter(c=>c!==classe) : [...current, classe];
+        await applyVisibility(prova, next);
+      };
+      chipRow.appendChild(chip);
+    });
+    provaMgmt.appendChild(chipRow);
+
+    const quickRow = el("div","toolbar");
+    quickRow.style.marginTop = "10px";
+    const showAllBtn = el("button","btn-secondary", "Mostra a tutte");
+    showAllBtn.onclick = ()=>applyVisibility(prova, TUTTE_LE_CLASSI.slice());
+    const hideAllBtn = el("button","btn-secondary", "Nascondi a tutte");
+    hideAllBtn.onclick = ()=>applyVisibility(prova, []);
+    quickRow.appendChild(showAllBtn);
+    quickRow.appendChild(hideAllBtn);
+    provaMgmt.appendChild(quickRow);
+
+    screen.appendChild(provaMgmt);
   });
 
-  const note = el("p","", "L'interruttore prova ad aggiornare subito tutti gli studenti (funziona quando apri questo link da proprietario dell'artifact). Se in questa vista non è possibile — es. anteprima nella chat, o permessi mancanti — aggiorna solo questo dispositivo e te lo dice chiaramente.");
-  note.style.cssText="font-size:12px;margin-top:14px;line-height:1.55;";
-  provaMgmt.appendChild(note);
+  async function applyVisibility(prova, newVisibleTo){
+    showToast("Aggiorno...");
+    const res = await publishProvaState(prova.id, newVisibleTo);
+    if(res.shared){
+      showToast("Aggiornato per tutti gli studenti ✓");
+      // dopo una publish riuscita questa stessa vista si ricarica da sola
+    } else {
+      showToast("Aggiornato solo su questo dispositivo — condivisione non disponibile qui");
+      render();
+    }
+  }
 
-  screen.appendChild(provaMgmt);
+  const note = el("div","card");
+  note.style.marginTop = "4px";
+  const noteP = el("p","", "I chip aggiornano subito tutti gli studenti (funziona quando apri questo link da proprietario dell'artifact). Se in questa vista non è possibile — es. anteprima nella chat, o permessi mancanti — aggiorna solo questo dispositivo e te lo dice chiaramente. Una prova senza nessuna classe selezionata è nascosta: gli studenti non la vedono nemmeno nell'elenco.");
+  noteP.style.cssText="font-size:12px;line-height:1.55;";
+  note.appendChild(noteP);
+  screen.appendChild(note);
   screen.appendChild(hubBackButton());
   $app.appendChild(screen);
 }
@@ -1706,16 +1746,16 @@ function renderTeacherClassi(){
   const screen = el("div","screen");
   screen.appendChild(sectionTitle("🏫","Classi"));
 
-  const db = getDB();
-  const students = Object.values(db.students);
-  const classi = ["2ª","3ª","4ª"];
+  const accounts = getAccounts();
+  const students = Object.entries(accounts).map(([uname,a])=>({key:uname, ...a}));
+  const classi = ["2ª Grafica","3ª Grafica","4ª Grafica"];
 
   const grid = el("div","home-cards");
   classi.forEach(c=>{
     const inClass = students.filter(s=>s.classe===c);
     const tile = el("button","role-card");
     const avgVoto = inClass.length ? (inClass.reduce((s,x)=>s+(x.voto||0),0)/inClass.length).toFixed(1) : "—";
-    tile.innerHTML = `<div class="icon">🎓</div><div class="txt"><h3>Classe ${c}</h3><p>${inClass.length} studenti con risultati · media voto ${avgVoto}</p></div>`;
+    tile.innerHTML = `<div class="icon">🎓</div><div class="txt"><h3>Classe ${c}</h3><p>${inClass.length} studenti registrati · media voto ${avgVoto}</p></div>`;
     tile.onclick = ()=>{ state.teacherFilter=c; state.screen="teacher-classe-detail"; render(); };
     grid.appendChild(tile);
   });
@@ -1735,8 +1775,8 @@ function renderTeacherClasseDetail(){
   const label = state.teacherFilter==="tutte" ? "Tutte le classi" : `Classe ${state.teacherFilter}`;
   screen.appendChild(sectionTitle("🎓", label));
 
-  const db = getDB();
-  const students = Object.entries(db.students).map(([key,s])=>({key,...s}));
+  const accounts = getAccounts();
+  const students = Object.entries(accounts).map(([uname,a])=>({key:uname, ...a}));
   const classes = Array.from(new Set(students.map(s=>s.classe))).sort();
 
   if(classes.length){
@@ -1759,7 +1799,7 @@ function renderTeacherClasseDetail(){
 
   if(!filtered.length){
     const empty = el("div","empty-state");
-    empty.innerHTML = `<p>Ancora nessuno studente importato per questa classe.<br>Vai in "Importa codici" per aggiungerne.</p>`;
+    empty.innerHTML = `<p>Ancora nessuno studente registrato per questa classe.<br>Aspetta che si iscrivano dall'Area studente.</p>`;
     screen.appendChild(empty);
   } else {
     const table = document.createElement("table");
@@ -1769,7 +1809,7 @@ function renderTeacherClasseDetail(){
     filtered.forEach(s=>{
       const tr = document.createElement("tr");
       const voteClass = s.voto<=4?"low":s.voto<=7?"mid":"high";
-      tr.innerHTML = `<td>${s.cognome} ${s.nome}${s.username?`<br><span style="color:var(--text-dim);font-size:11px;">@${s.username}</span>`:""}</td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito}€</td><td><span class="vote-pill ${voteClass}">${s.voto ?? "—"}</span></td>`;
+      tr.innerHTML = `<td>${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${s.voto ?? "—"}</span></td>`;
       tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.screen="teacher-detail"; render(); };
       tbody.appendChild(tr);
     });
@@ -1797,7 +1837,7 @@ function renderTeacherStudenti(){
   screen.appendChild(sectionTitle("👥","Studenti registrati"));
 
   const accCard = el("div","card");
-  const accSub = el("p","", "Account (username + password) creati su questo dispositivo. Sono diversi dagli studenti importati nelle Classi — questi vivono solo su questo Mac.");
+  const accSub = el("p","", "Account (username + password) creati su questo dispositivo. Sono la stessa lista che vedi in Classi, qui puoi anche eliminarli.");
   accSub.style.cssText="margin-bottom:14px;";
   accCard.appendChild(accSub);
 
@@ -1816,7 +1856,7 @@ function renderTeacherStudenti(){
       row.appendChild(info);
       const delBtn = el("button","prova-toggle", "Elimina");
       delBtn.onclick = ()=>{
-        if(confirm(`Eliminare il profilo di ${acc.nome} ${acc.cognome} (@${uname}) da questo dispositivo? Se ha già inviato i codici, i suoi risultati restano nelle Classi. Se non li ha inviati, andranno persi. Operazione non reversibile.`)){
+        if(confirm(`Eliminare il profilo di ${acc.nome} ${acc.cognome} (@${uname}) da questo dispositivo? Tutti i suoi risultati andranno persi — esporta un backup prima, se non sei sicuro. Operazione non reversibile.`)){
           const accs = getAccounts();
           delete accs[uname];
           saveAccounts(accs);
@@ -1975,8 +2015,8 @@ function renderTeacherDetail(){
   $app.appendChild(topbar());
   const screen = el("div","screen");
 
-  const db = getDB();
-  const s = db.students[state.teacherDetailKey];
+  const accounts = getAccounts();
+  const s = accounts[state.teacherDetailKey];
   if(!s){ state.screen="teacher-classe-detail"; render(); return; }
 
   const back = el("button","btn-ghost detail-back", "← torna alla lista");
