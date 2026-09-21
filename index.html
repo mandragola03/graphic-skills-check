@@ -1317,7 +1317,7 @@ function finishProva(){
   const {gross} = computeGrossEuro();
   const accounts = getAccounts();
   const acc = accounts[state.username];
-  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>[r.key, state.answers[r.key] ? {correct:state.answers[r.key].correct, total:state.answers[r.key].total, photos:state.answers[r.key].photos} : null]));
+  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>[r.key, state.answers[r.key] ? {correct:state.answers[r.key].correct, total:state.answers[r.key].total, photos:state.answers[r.key].photos || null} : null]));
   const idea = (state.answers[BOSS_FIGHT.key] && state.answers[BOSS_FIGHT.key].idea) || "";
 
   let prova;
