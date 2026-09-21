@@ -170,10 +170,10 @@ button:active{transform:scale(0.98);}
   color:var(--text-dim);font-size:12px;font-weight:600;padding:7px 11px;
 }
 .pwd-toggle:hover{color:var(--text);border-color:var(--teal);}
-.class-pick{display:flex;gap:7px;}
+.class-pick{display:flex;gap:5px;}
 .class-pick button{
-  flex:1;padding:12px 4px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);
-  color:var(--text);font-weight:600;font-size:13px;
+  flex:1;padding:11px 2px;border-radius:11px;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--text);font-weight:600;font-size:11.5px;
 }
 .class-pick button.sel{border-color:var(--gold);background:rgba(242,184,7,.12);color:var(--gold);}
 
@@ -208,6 +208,27 @@ button:active{transform:scale(0.98);}
 
 /* ---- question ---- */
 .q-text{font-size:17.5px;font-weight:600;margin-bottom:18px;line-height:1.45;letter-spacing:-0.005em;}
+
+.ricerca-task{background:var(--surface-2);border-radius:16px;padding:16px;margin-bottom:14px;position:relative;}
+.ricerca-num{
+  position:absolute;top:14px;left:14px;width:22px;height:22px;border-radius:7px;background:var(--grad-swag);
+  color:#13151c;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;
+}
+.ricerca-task p{font-size:14px;line-height:1.5;padding-left:32px;margin-bottom:12px;}
+.ricerca-upload{padding-left:32px;}
+.ricerca-add-btn{
+  width:100%;padding:18px;border-radius:13px;border:1.5px dashed var(--line);background:transparent;
+  color:var(--text-dim);font-weight:700;font-size:13.5px;
+}
+.ricerca-thumb{width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block;margin-bottom:8px;}
+.ricerca-btn-row{display:flex;gap:8px;}
+.ricerca-btn-row button{flex:1;}
+.btn-secondary.sm, .btn-ghost.sm{padding:9px 10px;font-size:12.5px;}
+.teacher-photo-review{margin-top:10px;}
+.teacher-photo-review p{font-size:11.5px;color:var(--text-dim);font-weight:700;margin-bottom:6px;}
+.teacher-photo-grid{display:flex;gap:8px;flex-wrap:wrap;}
+.teacher-photo-thumb{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer;}
+
 .opts{display:flex;flex-direction:column;gap:11px;}
 .opt{
   text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;
@@ -416,6 +437,22 @@ footer.foot.wide p{
 <script type="application/json" id="prova-lock-state">{"riepilogo-grafica-01":["3ª Grafica"],"cultura-grafica-01":["2ª Grafica","3ª Grafica","4ª Grafica"]}</script>
 <div id="app"></div>
 <div class="toast" id="toast"></div>
+
+<!-- Firebase: database condiviso per account studenti e visibilità prove.
+     FIREBASE_CONFIG viene incollata qui sotto (la trovi nella console Firebase,
+     Impostazioni progetto > Le tue app > Configurazione SDK). -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDsds-9hETcX6AK2HuYtuL79yeujn86InY",
+  authDomain: "skillflex-67c7d.firebaseapp.com",
+  projectId: "skillflex-67c7d",
+  storageBucket: "skillflex-67c7d.firebasestorage.app",
+  messagingSenderId: "91832030046",
+  appId: "1:91832030046:web:baf7aba6d4644bdaac35cf"
+};
+</script>
 
 <script>
 /* =========================================================
@@ -643,17 +680,84 @@ const ROUND_CULTURA = {
 };
 const ROUNDS_CULTURA = [ROUND_CULTURA];
 
+/* ---- prova "Primo giorno da designer", pensata per la 1ª Grafica ---- */
+const ROUND_BUONSENSO_QUIZ = {
+  key:"buonsenso-quiz", title:"Il tuo occhio è già allenato?", rk:"Round 1",
+  sub:"Nessuna di queste domande richiede cose studiate a scuola: usa solo il tuo istinto.",
+  type:"quiz",
+  questions:[
+    {q:"Devi scrivere il nome di un negozio su un'insegna che la gente deve leggere da lontano. Meglio scrivere...", opts:[
+      "Grande, semplice e con un buon contrasto di colore",
+      "Piccolo ma con un font molto elaborato",
+      "Tutto in corsivo elegante, non importa la dimensione"], correct:0},
+    {q:"Due manifesti per la stessa festa: uno ha un solo messaggio grande e chiaro, l'altro ha 15 scritte tutte della stessa dimensione. Quale si legge meglio?", opts:[
+      "Quello con le 15 scritte, più info meglio è",
+      "Quello con un solo messaggio chiaro",
+      "Sono uguali, non fa differenza"], correct:1},
+    {q:"Un tuo amico ti manda una foto e la ingrandisce al massimo su WhatsApp: iniziano a vedersi tanti quadratini. Cos'è successo?", opts:[
+      "Il telefono si è rotto",
+      "L'ha ingrandita troppo e si vedono i puntini che compongono l'immagine",
+      "È normale, succede sempre"], correct:1},
+    {q:"Il tuo insegnante scrive un titolo in giallo chiaro su un foglio bianco. Cosa succede?", opts:[
+      "Si legge benissimo, uguale a scriverlo in nero",
+      "Diventa difficile da leggere",
+      "Diventa più elegante ma si legge uguale"], correct:1},
+    {q:"Guarda un logo famoso che conosci: di solito è molto semplice, non pieno di dettagli. Secondo te perché?", opts:[
+      "Per caso, non c'è un vero motivo",
+      "Perché un logo semplice si riconosce e si ricorda più facilmente",
+      "Perché costa meno disegnarlo"], correct:1},
+    {q:"Un amico ti scrive \"VIENI SUBITO!!! È IMPORTANTE!!!\" tutto maiuscolo. Come lo percepisci?", opts:[
+      "Calmo e tranquillo",
+      "Come se stesse urlando o fosse agitato",
+      "Non fa nessuna differenza rispetto a scriverlo normale"], correct:1},
+    {q:"Stai scegliendo i vestiti da abbinare per uscire. Di solito cerchi colori che...", opts:[
+      "Stanno bene insieme secondo il tuo gusto",
+      "Scegli sempre a caso, tanto non conta",
+      "Devono essere tutti dello stesso colore, sempre"], correct:0},
+    {q:"Un'app di consegne ha un pulsante enorme e colorato con scritto \"Ordina ora\", ben visibile su tutta la pagina. Perché è fatto così, secondo te?", opts:[
+      "È un errore di chi ha fatto l'app",
+      "Per farti capire subito e senza sforzo cosa fare",
+      "Per riempire lo spazio vuoto"], correct:1}
+  ]
+};
+const ROUND_BUONSENSO_VF = {
+  key:"buonsenso-vf", title:"Vero o falso?", rk:"Round 2",
+  sub:"Cerca di capirlo con l'istinto. Vale anche indovinare!",
+  type:"quiz",
+  questions:[
+    {q:"Una scritta piccola e sottile si legge meglio da lontano rispetto a una grande e spessa.", opts:["Vero","Falso"], correct:1},
+    {q:"Se un manifesto ha 20 informazioni scritte tutte della stessa dimensione, è più difficile capire cosa è più importante.", opts:["Vero","Falso"], correct:0},
+    {q:"I loghi delle grandi aziende famose sono quasi sempre pieni zeppi di dettagli.", opts:["Vero","Falso"], correct:1},
+    {q:"Scrivere TUTTO IN MAIUSCOLO su internet viene spesso percepito come \"urlare\".", opts:["Vero","Falso"], correct:0},
+    {q:"Una foto sgranata diventa più nitida se la ingrandisci ancora di più.", opts:["Vero","Falso"], correct:1},
+    {q:"I colori possono trasmettere emozioni diverse — per esempio il rosso spesso comunica energia o pericolo.", opts:["Vero","Falso"], correct:0},
+    {q:"Non importa che scritta usi su un cartello stradale, tanto la gente lo legge bene comunque.", opts:["Vero","Falso"], correct:1},
+    {q:"Una scritta chiara su uno sfondo di colore molto simile diventa più difficile da leggere.", opts:["Vero","Falso"], correct:0},
+    {q:"Chi crea una grafica dovrebbe pensare soprattutto a chi la guarderà, non solo a farla bella per sé.", opts:["Vero","Falso"], correct:0},
+    {q:"Il Comic Sans, il font \"buffo\" che conoscono tutti, è nato pensando a un cagnolino che parlava in un vecchio programma per computer.", opts:["Vero","Falso"], correct:0}
+  ]
+};
+const ROUND_RICERCA_01 = {
+  key:"ricerca-01", title:"Caccia alla grafica", rk:"Round 3",
+  sub:"Vai su internet, cerca, trova, fai uno screenshot e ritaglialo — poi caricalo qui sotto.",
+  type:"ricerca",
+  tasks:[
+    {id:"t1", prompt:"Cerca online un logo che ti piace molto. Fai uno screenshot, ritaglialo (solo il logo) e caricalo qui."},
+    {id:"t2", prompt:"Trova un manifesto o una locandina con un buon contrasto tra testo e sfondo. Fai uno screenshot e caricalo."},
+    {id:"t3", prompt:"Cerca un font che ti sembra \"elegante\" e uno che ti sembra \"giocoso\". Fai uno screenshot che li mostri entrambi (anche affiancati) e caricalo."}
+  ]
+};
+const ROUNDS_PRIMO_GIORNO = [ROUND_BUONSENSO_QUIZ, ROUND_BUONSENSO_VF, ROUND_RICERCA_01];
+
 /* Registro di TUTTI i round mai creati (di ogni prova), usato per ritrovare
    titolo/testo quando si legge lo storico di una prova passata. */
 const ROUND_REGISTRY = {};
-[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
+[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
 
-/* Le prove disponibili. Ognuna può essere sbloccata o bloccata dal docente.
-   "unlocked" qui sotto è il valore di default che parte con l'app; il
-   docente può poi sovrascriverlo dalla sua dashboard (vedi PROVA_OVERRIDES_KEY) —
-   quella modifica però vale solo sul dispositivo su cui la fa, finché l'app
-   non ha un backend condiviso (vedi nota in dashboard docente). */
-const TUTTE_LE_CLASSI = ["2ª Grafica","3ª Grafica","4ª Grafica"];
+/* Le prove disponibili. Ognuna ha una lista di classi a cui è visibile
+   (visibleTo) — il docente la cambia dalla sua dashboard, salvata su
+   Firestore: aggiornamento condiviso in tempo reale su ogni dispositivo. */
+const TUTTE_LE_CLASSI = ["1ª Grafica","2ª Grafica","3ª Grafica","4ª Grafica"];
 
 const PROVE = [
   {
@@ -671,6 +775,14 @@ const PROVE = [
     desc:"10 domande a raffica sul mondo del design: nomi, curiosità, perché le cose si chiamano così.",
     visibleTo: TUTTE_LE_CLASSI.slice(),
     rounds: ROUNDS_CULTURA
+  },
+  {
+    id:"primo-giorno-01",
+    icon:"🔍",
+    title:"Cose da fare: Primo giorno da designer",
+    desc:"Quiz di buon senso, vero/falso e una caccia alla grafica vera su internet — 3 round, circa 20 minuti.",
+    visibleTo:["1ª Grafica"],
+    rounds: ROUNDS_PRIMO_GIORNO
   }
 ];
 
@@ -678,20 +790,20 @@ const PROVE = [
 let ACTIVE_ROUNDS = PROVE[0].rounds;
 let ACTIVE_PROVA = PROVE[0];
 
-/* Stato condiviso di blocco/sblocco prove: vive dentro la pagina pubblicata
-   stessa (tag <script id="prova-lock-state">). Quando il docente lo tocca,
-   l'app ripubblica l'intera pagina con lo stato aggiornato tramite la
-   capability "artifact" — e ogni scheda aperta (inclusi gli studenti) si
-   aggiorna da sola, davvero per tutti, non solo su questo dispositivo. */
+/* Stato condiviso di blocco/sblocco prove per classe: vive ora in Firestore
+   (collection "config", doc "provaVisibility"), sincronizzato in tempo reale
+   con onSnapshot in initFirebase(). Il valore letto dal tag <script id=
+   "prova-lock-state"> resta solo come primissimo stato prima che Firestore
+   risponda (evita un lampo vuoto al caricamento). */
 let SHARED_PROVA_STATE = {};
 try{
   const el0 = document.getElementById("prova-lock-state");
   if(el0) SHARED_PROVA_STATE = JSON.parse(el0.textContent) || {};
 }catch(e){ SHARED_PROVA_STATE = {}; }
 
-/* Override locale, usato SOLO come ripiego quando la ripubblicazione
-   condivisa non è disponibile in questa vista (es. anteprima nella chat,
-   o permessi mancanti) — vale solo su questo dispositivo. */
+/* Override locale, usato SOLO come ripiego quando Firestore non è
+   raggiungibile (offline, non configurato, errore) — vale solo su questo
+   dispositivo finché la connessione non torna. */
 const PROVA_OVERRIDES_KEY = "gsc_prova_overrides_v1";
 function getProvaOverrides(){
   try{ return JSON.parse(localStorage.getItem(PROVA_OVERRIDES_KEY)) || {}; }catch(e){ return {}; }
@@ -712,30 +824,20 @@ function isProvaVisibleForClasse(prova, classe){
   return getProvaVisibility(prova).includes(classe);
 }
 
-/* Ripubblica l'intera pagina con la visibilità prove aggiornata, così TUTTI
-   gli studenti la vedono, non solo questo dispositivo. Se non è possibile
-   (capability non concessa in questa vista, permessi mancanti, ecc.)
-   ricade sull'override locale e lo dice chiaramente. */
+/* Salva la nuova visibilità su Firestore: da lì in poi TUTTI gli studenti,
+   su qualsiasi dispositivo, la vedono aggiornata in tempo reale. Se
+   Firestore non è disponibile, ricade sull'override locale e lo dice. */
 async function publishProvaState(provaId, visibleTo){
   const newState = {...SHARED_PROVA_STATE, [provaId]: visibleTo};
-  try{
-    if(window.claude && window.claude.use){
-      const artifactCap = await window.claude.use("artifact");
-      if(artifactCap){
-        const res = await fetch(location.href, {cache:"no-store"});
-        let rawHtml = await res.text();
-        const marker = /(<script type="application\/json" id="prova-lock-state">)([\s\S]*?)(<\/script>)/;
-        if(marker.test(rawHtml)){
-          rawHtml = rawHtml.replace(marker, (m,a,b,c)=> a + JSON.stringify(newState) + c);
-          await artifactCap.publish(rawHtml);
-          // successo: questa vista si ricarica da sola sulla nuova versione
-          return {ok:true, shared:true};
-        }
-      }
-    }
-  }catch(e){ /* niente permessi o capability non disponibile qui: ripiego locale */ }
+  if(db){
+    try{
+      await db.collection("config").doc("provaVisibility").set(newState);
+      SHARED_PROVA_STATE = newState;
+      return {ok:true, shared:true};
+    }catch(e){ console.error("Errore salvataggio visibilità prova", e); }
+  }
   setProvaOverride(provaId, visibleTo);
-  SHARED_PROVA_STATE = {...SHARED_PROVA_STATE, [provaId]: visibleTo};
+  SHARED_PROVA_STATE = newState;
   return {ok:true, shared:false};
 }
 function provaIcon(provaId){
@@ -837,26 +939,66 @@ function renderHome(){
   $app.appendChild(foot);
 }
 
-/* ---------------- ACCOUNT STUDENTI (locali a questo dispositivo) ---------------- */
+/* ---------------- ACCOUNT STUDENTI (database condiviso — Firebase) ---------------- */
 
-/* PROMEMORIA PER FUTURE MODIFICHE: i dati (profili, crediti, storico prove) vivono
-   nel localStorage del browser, legato al dominio (non al singolo deploy). Restano
-   quindi intatti a ogni aggiornamento del codice pubblicato su Vercel — A CONDIZIONE
-   che i nomi delle chiavi qui sotto (ACCOUNTS_KEY, STORAGE_KEY, ecc.) non vengano MAI
-   rinominati. Se in futuro serve cambiare la struttura di un dato salvato, scrivere
-   una funzione di migrazione che legge la vecchia chiave e la converte, invece di
-   limitarsi a cambiarne il nome: rinominare una chiave senza migrazione equivale a
-   cancellare tutti i dati già salvati dagli utenti. */
+/* PROMEMORIA PER FUTURE MODIFICHE: gli account vivono ora in Firestore (cloud, condiviso
+   fra tutti i dispositivi), non più solo nel localStorage. ACCOUNTS_CACHE è la copia in
+   memoria tenuta sincronizzata in tempo reale da Firestore (onSnapshot); getAccounts()
+   legge semplicemente da lì così tutto il resto del codice, scritto in stile sincrono,
+   continua a funzionare senza modifiche. Il localStorage resta solo come ripiego se
+   Firebase non è configurato o non risponde (offline, errore di connessione). */
 
-const ACCOUNTS_KEY = "gsc_accounts_v1";
+const ACCOUNTS_KEY = "gsc_accounts_v1"; // ripiego locale, usato solo se Firestore non è raggiungibile
+let ACCOUNTS_CACHE = {};
+let db = null; // istanza Firestore, valorizzata da initFirebase()
 
 function getAccounts(){
+  if(db) return ACCOUNTS_CACHE;
   try{ return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {}; }catch(e){ return {}; }
 }
 function saveAccounts(a){
-  try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
-  catch(e){ showToast("Impossibile salvare il profilo su questo dispositivo"); }
+  ACCOUNTS_CACHE = a; // aggiornamento ottimistico: l'interfaccia reagisce subito, senza aspettare la rete
+  if(db){
+    const before = LAST_KNOWN_ACCOUNT_KEYS;
+    const nowKeys = Object.keys(a);
+    before.forEach(k=>{ if(!nowKeys.includes(k)) db.collection("accounts").doc(k).delete().catch(()=>{}); });
+    nowKeys.forEach(k=>{ db.collection("accounts").doc(k).set(a[k]).catch(()=>{ showToast("Salvataggio online non riuscito — riprova quando hai connessione"); }); });
+    LAST_KNOWN_ACCOUNT_KEYS = nowKeys;
+  } else {
+    try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
+    catch(e){ showToast("Impossibile salvare il profilo su questo dispositivo"); }
+  }
 }
+let LAST_KNOWN_ACCOUNT_KEYS = [];
+
+function initFirebase(){
+  if(typeof FIREBASE_CONFIG === "undefined" || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey){
+    console.warn("Firebase non configurato: gli account restano locali a questo dispositivo.");
+    return;
+  }
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    db.collection("accounts").onSnapshot(snap=>{
+      const next = {};
+      snap.forEach(doc=>{ next[doc.id] = doc.data(); });
+      ACCOUNTS_CACHE = next;
+      LAST_KNOWN_ACCOUNT_KEYS = Object.keys(next);
+      render();
+    }, err=>{
+      console.error("Errore connessione Firestore (accounts)", err);
+      showToast("Connessione al database non riuscita — controlla la configurazione Firebase");
+    });
+    db.collection("config").doc("provaVisibility").onSnapshot(doc=>{
+      SHARED_PROVA_STATE = (doc.exists && doc.data()) || {};
+      render();
+    }, err=>console.error("Errore connessione Firestore (config)", err));
+  }catch(e){
+    console.error("Firebase init fallita", e);
+    db = null;
+  }
+}
+
 function normalizeUsername(u){ return (u||"").trim().toLowerCase().replace(/\s+/g,""); }
 function calcFatturato(prove){ return (prove||[]).reduce((sum,p)=>sum+(p.gross||0), 0); }
 
@@ -985,7 +1127,7 @@ function renderStudentAuth(){
     const fClasse = el("div","field");
     fClasse.innerHTML = `<label>Classe</label>`;
     const pick = el("div","class-pick");
-    ["2ª Grafica","3ª Grafica","4ª Grafica"].forEach(c=>{
+    TUTTE_LE_CLASSI.forEach(c=>{
       const b = el("button","", c);
       if(f.classe===c) b.classList.add("sel");
       b.onclick = ()=>{ f.classe=c; render(); };
@@ -1139,6 +1281,7 @@ function renderStudentRound(){
   if(round.type==="quiz") return renderQuizRound(round);
   if(round.type==="multi") return renderMultiRound(round);
   if(round.type==="boss") return renderBossRound(round);
+  if(round.type==="ricerca") return renderRicercaRound(round);
 }
 
 function progressHeader(round){
@@ -1174,7 +1317,7 @@ function finishProva(){
   const {gross} = computeGrossEuro();
   const accounts = getAccounts();
   const acc = accounts[state.username];
-  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>[r.key, state.answers[r.key] ? {correct:state.answers[r.key].correct, total:state.answers[r.key].total} : null]));
+  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>[r.key, state.answers[r.key] ? {correct:state.answers[r.key].correct, total:state.answers[r.key].total, photos:state.answers[r.key].photos} : null]));
   const idea = (state.answers[BOSS_FIGHT.key] && state.answers[BOSS_FIGHT.key].idea) || "";
 
   let prova;
@@ -1245,6 +1388,96 @@ function renderQuizRound(round){
 
   screen.appendChild(card);
   $app.appendChild(screen);
+}
+
+/* --- ricerca (foto da internet) round --- */
+function resizeImageFile(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(new Error("lettura file fallita"));
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error("immagine non valida"));
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+        else if(h > maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderRicercaRound(round){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(progressHeader(round));
+  const card = el("div","card");
+  card.appendChild(roundHeader(round));
+
+  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.tasks.length, photos:{}};
+  const photos = state.answers[round.key].photos;
+
+  round.tasks.forEach((task, idx)=>{
+    const box = el("div","ricerca-task");
+    box.innerHTML = `<div class="ricerca-num">${idx+1}</div><p>${task.prompt}</p>`;
+
+    const uploadWrap = el("div","ricerca-upload");
+    if(photos[task.id]){
+      uploadWrap.innerHTML = `<img src="${photos[task.id]}" class="ricerca-thumb">`;
+      const btnRow = el("div","ricerca-btn-row");
+      const changeBtn = el("button","btn-secondary sm", "Cambia foto");
+      changeBtn.onclick = ()=>triggerUpload(task.id);
+      const removeBtn = el("button","btn-ghost sm", "Rimuovi");
+      removeBtn.onclick = ()=>{ delete photos[task.id]; syncRicercaCount(round); render(); };
+      btnRow.appendChild(changeBtn); btnRow.appendChild(removeBtn);
+      uploadWrap.appendChild(btnRow);
+    } else {
+      const addBtn = el("button","ricerca-add-btn", "＋ Aggiungi foto");
+      addBtn.onclick = ()=>triggerUpload(task.id);
+      uploadWrap.appendChild(addBtn);
+    }
+    box.appendChild(uploadWrap);
+    card.appendChild(box);
+  });
+
+  function triggerUpload(taskId){
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*"; input.style.display="none";
+    input.onchange = async ()=>{
+      if(!input.files || !input.files[0]) return;
+      try{
+        const dataUrl = await resizeImageFile(input.files[0], 480, 0.55);
+        photos[taskId] = dataUrl;
+        syncRicercaCount(round);
+        render();
+      }catch(e){ showToast("Non sono riuscito a caricare questa foto, riprova"); }
+    };
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(()=>document.body.removeChild(input), 3000);
+  }
+
+  const doneCount = round.tasks.filter(t=>photos[t.id]).length;
+  const contBtn = el("button","btn-primary", doneCount===round.tasks.length ? "Conferma e continua →" : `Carica tutte le foto per continuare (${doneCount}/${round.tasks.length})`);
+  contBtn.disabled = doneCount < round.tasks.length;
+  contBtn.style.marginTop = "18px";
+  contBtn.onclick = ()=>nextRoundOrFinish();
+  card.appendChild(contBtn);
+
+  screen.appendChild(card);
+  $app.appendChild(screen);
+}
+function syncRicercaCount(round){
+  const photos = state.answers[round.key].photos;
+  const correct = round.tasks.filter(t=>photos[t.id]).length;
+  state.answers[round.key].correct = correct;
+  state.answers[round.key].total = round.tasks.length;
 }
 
 /* --- multi (detective) round --- */
@@ -1696,7 +1929,7 @@ function renderTeacherProve(){
 
   const note = el("div","card");
   note.style.marginTop = "4px";
-  const noteP = el("p","", "I chip aggiornano subito tutti gli studenti (funziona quando apri questo link da proprietario dell'artifact). Se in questa vista non è possibile — es. anteprima nella chat, o permessi mancanti — aggiorna solo questo dispositivo e te lo dice chiaramente. Una prova senza nessuna classe selezionata è nascosta: gli studenti non la vedono nemmeno nell'elenco.");
+  const noteP = el("p","", "I chip aggiornano il database condiviso: tutti gli studenti, su qualsiasi dispositivo, vedono il cambiamento in pochi secondi. Se il database non è raggiungibile (offline), aggiorna solo questo dispositivo e te lo dice chiaramente. Una prova senza nessuna classe selezionata è nascosta: gli studenti non la vedono nemmeno nell'elenco.");
   noteP.style.cssText="font-size:12px;line-height:1.55;";
   note.appendChild(noteP);
   screen.appendChild(note);
@@ -1748,7 +1981,7 @@ function renderTeacherClassi(){
 
   const accounts = getAccounts();
   const students = Object.entries(accounts).map(([uname,a])=>({key:uname, ...a}));
-  const classi = ["2ª Grafica","3ª Grafica","4ª Grafica"];
+  const classi = TUTTE_LE_CLASSI;
 
   const grid = el("div","home-cards");
   classi.forEach(c=>{
@@ -2058,6 +2291,27 @@ function renderTeacherDetail(){
     bd.innerHTML = bdHtml;
     item.appendChild(bd);
 
+    // foto caricate nei round "ricerca" — da controllare a occhio
+    if(p.rounds){
+      Object.keys(p.rounds).forEach(k=>{
+        const rr = p.rounds[k];
+        if(rr && rr.photos && Object.keys(rr.photos).length){
+          const photoWrap = el("div","teacher-photo-review");
+          const title = (ROUND_REGISTRY[k] && ROUND_REGISTRY[k].title) || k;
+          photoWrap.appendChild(el("p","", `📎 Foto caricate — ${title}`));
+          const grid = el("div","teacher-photo-grid");
+          Object.values(rr.photos).forEach(src=>{
+            const img = document.createElement("img");
+            img.src = src; img.className = "teacher-photo-thumb";
+            img.onclick = ()=>window.open(src, "_blank");
+            grid.appendChild(img);
+          });
+          photoWrap.appendChild(grid);
+          item.appendChild(photoWrap);
+        }
+      });
+    }
+
     screen.appendChild(item);
   });
 
@@ -2065,6 +2319,7 @@ function renderTeacherDetail(){
 }
 
 /* ---------------- INIT ---------------- */
+initFirebase();
 render();
 </script>
 </body>
