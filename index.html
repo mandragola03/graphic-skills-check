@@ -845,6 +845,94 @@ function provaIcon(provaId){
   return p ? p.icon : "📋";
 }
 
+/* Costruisce il dettaglio/correzione di una prova già fatta: round per round,
+   mostra cosa era giusto/sbagliato. In modalità editable (solo per il docente)
+   aggiunge un bottone "Modifica punteggio" per ogni round. */
+function buildProvaReviewBlock(p, opts){
+  opts = opts || {};
+  const wrap = el("div","");
+  if(p.rounds){
+    Object.keys(p.rounds).forEach(k=>{
+      const rr = p.rounds[k];
+      if(!rr) return;
+      const roundDef = ROUND_REGISTRY[k];
+      const box = el("div","hist-item");
+      const title = roundDef ? roundDef.title : k;
+      const topRow = el("div","hist-top");
+      topRow.innerHTML = `<span>${title}</span><span>${rr.correct}/${rr.total}</span>`;
+      box.appendChild(topRow);
+
+      if(opts.editable){
+        const editBtn = el("button","btn-ghost sm", "✏️ Modifica punteggio");
+        editBtn.style.marginBottom = "8px";
+        editBtn.onclick = ()=>opts.onEditRound(k);
+        box.appendChild(editBtn);
+      }
+
+      // correzione round quiz: domanda per domanda
+      if(rr.scored && roundDef && roundDef.questions){
+        const qList = el("div","breakdown");
+        let html = "";
+        roundDef.questions.forEach((q, qi)=>{
+          const known = Object.prototype.hasOwnProperty.call(rr.scored, qi);
+          if(!known) return;
+          const ok = rr.scored[qi]===1;
+          html += `${ok?"✓":"✗"} ${q.q}`;
+          if(!ok) html += `<br><em>Risposta corretta: ${q.opts[q.correct]}</em>`;
+          html += "<br>";
+        });
+        qList.innerHTML = html;
+        box.appendChild(qList);
+      }
+
+      // correzione round "detective": cosa era davvero un problema
+      if(rr.selected && roundDef && roundDef.options){
+        const mList = el("div","breakdown");
+        let html = "";
+        roundDef.options.forEach((o, oi)=>{
+          const picked = rr.selected.includes(oi);
+          if(o.ok) html += `${picked?"✓ trovato":"○ non trovato"} — ${o.t}<br>`;
+          else if(picked) html += `✗ selezionato ma non era un problema — ${o.t}<br>`;
+        });
+        mList.innerHTML = html;
+        box.appendChild(mList);
+      }
+
+      // riepilogo scelte boss fight
+      if(rr.steps){
+        const bList = el("div","breakdown");
+        let html = "";
+        Object.keys(rr.steps).forEach(stepKey=>{ html += `${stepKey}: ${rr.steps[stepKey]}<br>`; });
+        bList.innerHTML = html;
+        box.appendChild(bList);
+      }
+
+      // foto caricate (round "ricerca")
+      if(rr.photos && Object.keys(rr.photos).length){
+        const photoWrap = el("div","teacher-photo-review");
+        photoWrap.appendChild(el("p","", "📎 Foto caricate"));
+        const grid = el("div","teacher-photo-grid");
+        Object.values(rr.photos).forEach(src=>{
+          const img = document.createElement("img");
+          img.src = src; img.className = "teacher-photo-thumb";
+          img.onclick = ()=>window.open(src, "_blank");
+          grid.appendChild(img);
+        });
+        photoWrap.appendChild(grid);
+        box.appendChild(photoWrap);
+      }
+
+      wrap.appendChild(box);
+    });
+  }
+  if(p.idea){
+    const ideaP = el("p","", `Idea boss fight: "${p.idea}"`);
+    ideaP.style.cssText = "font-size:12.5px;font-style:italic;margin-top:4px;";
+    wrap.appendChild(ideaP);
+  }
+  return wrap;
+}
+
 /* ---------------- STATE ---------------- */
 
 let state = {
@@ -863,7 +951,8 @@ let state = {
   multiSel:[],
   teacherFilter:"tutte",
   teacherDetailKey:null,
-  lastImportCount:0
+  lastImportCount:0,
+  expandedProvaTs:null
 };
 
 const $app = document.getElementById("app");
@@ -879,6 +968,7 @@ function render(){
   if(state.screen==="teacher-hub") return renderTeacherHub();
   if(state.screen==="teacher-prove") return renderTeacherProve();
   if(state.screen==="teacher-classi") return renderTeacherClassi();
+  if(state.screen==="teacher-risultati") return renderTeacherRisultati();
   if(state.screen==="teacher-classe-detail") return renderTeacherClasseDetail();
   if(state.screen==="teacher-studenti") return renderTeacherStudenti();
   if(state.screen==="teacher-importa") return renderTeacherImporta();
@@ -1001,6 +1091,40 @@ function initFirebase(){
 
 function normalizeUsername(u){ return (u||"").trim().toLowerCase().replace(/\s+/g,""); }
 function calcFatturato(prove){ return (prove||[]).reduce((sum,p)=>sum+(p.gross||0), 0); }
+
+/* Media voto con un decimale (es. 7.3), tra 1 e 10. null se lo studente non ha ancora prove. */
+function computeAvgVoto(prove){
+  if(!prove || !prove.length) return null;
+  const avg = prove.reduce((s,p)=>s+p.voto, 0) / prove.length;
+  return Math.max(1, Math.min(10, Math.round(avg*10)/10));
+}
+function fmtVoto(v){ return (v===null || v===undefined) ? "—" : v.toFixed(1); }
+
+/* Ricalcola in ordine cronologico tutta la catena credito -> totale -> voto per ogni
+   prova dello studente, e aggiorna il credito residuo e la media voto finali.
+   Va richiamata ogni volta che una prova viene aggiunta, modificata o azzerata a mano,
+   perché il credito di ogni prova dipende da quello lasciato dalla prova precedente. */
+function recomputeStudentProve(acc){
+  acc.prove.sort((a,b)=>a.ts-b.ts);
+  let credito = 0;
+  acc.prove.forEach(p=>{
+    p.creditoPrima = credito;
+    p.totale = (p.gross||0) + credito;
+    p.voto = Math.max(1, Math.min(10, Math.floor(p.totale/100)));
+    credito = p.totale - p.voto*100;
+  });
+  acc.credito = credito;
+  acc.voto = computeAvgVoto(acc.prove);
+}
+
+/* Numero di prove che lo studente ha iniziato ma non completato (e non ancora
+   risolte dal docente con sblocco o chiusura a 0€) */
+function pendingAbandonedCount(acc){
+  if(!acc.startedProve) return 0;
+  return Object.keys(acc.startedProve).filter(pid=>
+    acc.startedProve[pid] && !acc.prove.find(p=>p.provaId===pid)
+  ).length;
+}
 
 async function hashPass(pw){
   const enc = new TextEncoder().encode(pw);
@@ -1195,7 +1319,7 @@ function renderStudentProfile(){
   const fatturato = calcFatturato(acc.prove);
   const s1 = el("div","stat-box"); s1.innerHTML = `<div class="num">${fatturato}€</div><div class="lbl">Fatturato totale</div>`;
   const s2 = el("div","stat-box"); s2.innerHTML = `<div class="num">${acc.credito||0}€</div><div class="lbl">Credito residuo</div>`;
-  const s3 = el("div","stat-box"); s3.innerHTML = `<div class="num">${acc.voto ?? "—"}</div><div class="lbl">Voto attuale</div>`;
+  const s3 = el("div","stat-box"); s3.innerHTML = `<div class="num">${fmtVoto(acc.voto)}</div><div class="lbl">Voto attuale</div>`;
   const s4 = el("div","stat-box"); s4.innerHTML = `<div class="num">${acc.prove.length}</div><div class="lbl">Prove fatte</div>`;
   stats.appendChild(s1); stats.appendChild(s2); stats.appendChild(s3); stats.appendChild(s4);
   card.appendChild(stats);
@@ -1250,7 +1374,7 @@ function renderStudentProfile(){
     const histTitle = el("h3","", "Le tue prove");
     histTitle.style.cssText="margin-top:24px;margin-bottom:12px;font-size:15px;";
     screen.appendChild(histTitle);
-    [...acc.prove].reverse().forEach(p=>{
+    [...acc.prove].sort((a,b)=>b.ts-a.ts).forEach(p=>{
       const item = el("div","hist-item");
       const top2 = el("div","hist-top");
       top2.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
@@ -1258,6 +1382,19 @@ function renderStudentProfile(){
       const line = el("div","", `Compenso: ${p.gross}€ · Totale con credito: ${p.totale}€`);
       line.style.fontSize="12px"; line.style.color="var(--text-dim)";
       item.appendChild(line);
+
+      const isOpen = state.expandedProvaTs === p.ts;
+      const toggleBtn = el("button","btn-ghost sm", isOpen ? "▲ Chiudi" : "▾ Apri correzione");
+      toggleBtn.style.marginTop = "8px";
+      toggleBtn.onclick = ()=>{ state.expandedProvaTs = isOpen ? null : p.ts; render(); };
+      item.appendChild(toggleBtn);
+
+      if(isOpen){
+        const detail = buildProvaReviewBlock(p, {editable:false});
+        detail.style.marginTop = "10px";
+        item.appendChild(detail);
+      }
+
       screen.appendChild(item);
     });
   }
@@ -1317,21 +1454,22 @@ function finishProva(){
   const {gross} = computeGrossEuro();
   const accounts = getAccounts();
   const acc = accounts[state.username];
-  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>[r.key, state.answers[r.key] ? {correct:state.answers[r.key].correct, total:state.answers[r.key].total, photos:state.answers[r.key].photos || null} : null]));
+  const roundsSnapshot = Object.fromEntries(ACTIVE_ROUNDS.map(r=>{
+    const a = state.answers[r.key];
+    if(!a) return [r.key, null];
+    const base = {correct:a.correct, total:a.total, photos:a.photos || null};
+    if(a.scored) base.scored = a.scored;     // round quiz: quale domanda giusta/sbagliata
+    if(a.selected) base.selected = a.selected; // round "detective": cosa aveva selezionato
+    if(a.steps) base.steps = a.steps;          // round boss fight: scelte fatte
+    return [r.key, base];
+  }));
   const idea = (state.answers[BOSS_FIGHT.key] && state.answers[BOSS_FIGHT.key].idea) || "";
 
   let prova;
   if(acc){
-    const creditoPrima = acc.credito || 0;
-    const totale = gross + creditoPrima;
-    const voto = Math.max(1, Math.min(10, Math.floor(totale/100)));
-    const nuovoCredito = totale - voto*100;
-    prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, creditoPrima, totale, voto, rounds:roundsSnapshot, idea};
+    prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, rounds:roundsSnapshot, idea};
     acc.prove.push(prova);
-    acc.credito = nuovoCredito;
-    // il voto attuale è la media di tutti i voti presi finora, non solo l'ultimo
-    const avg = acc.prove.reduce((s,p)=>s+p.voto, 0) / acc.prove.length;
-    acc.voto = Math.max(1, Math.min(10, Math.round(avg)));
+    recomputeStudentProve(acc); // ricalcola credito/totale/voto di questa e di tutte le prove, e la media
     // la prova è ora completata: tolta dalle "iniziate ma non finite" (resta comunque bloccata perché completata)
     if(acc.startedProve) delete acc.startedProve[ACTIVE_PROVA.id];
     saveAccounts(accounts);
@@ -1532,7 +1670,7 @@ function renderMultiRound(round){
       if(round.options[i].ok) score++; else wrongPicks++;
     });
     score = Math.max(0, score - Math.floor(wrongPicks/2));
-    state.answers[round.key] = {correct:score, total:totalCorrect};
+    state.answers[round.key] = {correct:score, total:totalCorrect, selected:state.multiSel.slice()};
     nextRoundOrFinish();
   };
   card.appendChild(btn);
@@ -1809,8 +1947,7 @@ function importCodes(text){
         rounds:payload.rounds, idea:payload.idea
       });
       s.credito = nuovoCredito;
-      const avg = s.prove.reduce((sum,p)=>sum+p.voto, 0) / s.prove.length;
-      s.voto = Math.max(1, Math.min(10, Math.round(avg)));
+      s.voto = computeAvgVoto(s.prove);
       imported++;
     }catch(e){ failed++; }
   });
@@ -1833,10 +1970,14 @@ function renderTeacherHub(){
   const students = Object.values(db.students);
   const accounts = getAccounts();
 
+  const accEntries = Object.values(accounts);
+  const pendingCount = accEntries.reduce((sum,a)=>sum+pendingAbandonedCount(a), 0);
+
   const tiles = [
-    {id:"teacher-prove", icon:"🗓️", title:"Prove", desc:"Sblocca o blocca le prove disponibili"},
-    {id:"teacher-classi", icon:"🏫", title:"Classi", desc:`Sfoglia per classe — ${students.length} studenti con risultati`},
-    {id:"teacher-studenti", icon:"👥", title:"Studenti registrati", desc:`${Object.keys(accounts).length} profili su questo dispositivo`},
+    {id:"teacher-prove", icon:"🗓️", title:"Prove", desc:"Sblocca o blocca le prove disponibili per classe"},
+    {id:"teacher-classi", icon:"🏫", title:"Classi", desc: pendingCount ? `Studenti per classe · ⏳ ${pendingCount} prove in sospeso` : "Sfoglia gli studenti, divisi per classe"},
+    {id:"teacher-risultati", icon:"📈", title:"Risultati", desc:"Nome, cognome e media voto, divisi per classe"},
+    {id:"teacher-studenti", icon:"👥", title:"Studenti registrati", desc:`${Object.keys(accounts).length} profili — gestione account`},
     {id:"teacher-backup", icon:"💾", title:"Backup", desc:"Esporta o ripristina tutti i dati"}
   ];
 
@@ -2002,6 +2143,57 @@ function renderTeacherClassi(){
   $app.appendChild(screen);
 }
 
+function renderTeacherRisultati(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("📈","Risultati"));
+
+  const accounts = getAccounts();
+  const students = Object.entries(accounts).map(([uname,a])=>({key:uname, ...a}));
+  const classes = Array.from(new Set(students.map(s=>s.classe))).sort();
+
+  if(classes.length){
+    const filterBar = el("div","class-filter");
+    const allBtn = el("button","", "Tutte");
+    if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+    allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
+    filterBar.appendChild(allBtn);
+    classes.forEach(c=>{
+      const b = el("button","", c);
+      if(state.teacherFilter===c) b.classList.add("sel");
+      b.onclick=()=>{ state.teacherFilter=c; render(); };
+      filterBar.appendChild(b);
+    });
+    screen.appendChild(filterBar);
+  }
+
+  const filtered = students.filter(s=> state.teacherFilter==="tutte" || s.classe===state.teacherFilter)
+    .sort((a,b)=> (a.classe+a.cognome).localeCompare(b.classe+b.cognome));
+
+  if(!filtered.length){
+    const empty = el("div","empty-state");
+    empty.innerHTML = `<p>Nessuno studente registrato per questa classe.</p>`;
+    screen.appendChild(empty);
+  } else {
+    const table = document.createElement("table");
+    table.className="stu-table";
+    table.innerHTML = `<thead><tr><th>Studente</th><th>Classe</th><th>Media voto</th></tr></thead>`;
+    const tbody = document.createElement("tbody");
+    filtered.forEach(s=>{
+      const tr = document.createElement("tr");
+      const voteClass = (s.voto??0)<=4?"low":(s.voto??0)<=7?"mid":"high";
+      tr.innerHTML = `<td>${s.cognome} ${s.nome}</td><td>${s.classe}</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td>`;
+      tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.screen="teacher-detail"; render(); };
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    screen.appendChild(table);
+  }
+
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
+}
+
 function renderTeacherClasseDetail(){
   $app.appendChild(topbar());
   const screen = el("div","screen");
@@ -2037,12 +2229,14 @@ function renderTeacherClasseDetail(){
   } else {
     const table = document.createElement("table");
     table.className="stu-table";
-    table.innerHTML = `<thead><tr><th>Studente</th><th>Classe</th><th>Fatturato</th><th>Credito</th><th>Voto</th></tr></thead>`;
+    table.innerHTML = `<thead><tr><th>Studente</th><th>Classe</th><th>Fatturato</th><th>Credito</th><th>Voto</th><th>Stato</th></tr></thead>`;
     const tbody = document.createElement("tbody");
     filtered.forEach(s=>{
       const tr = document.createElement("tr");
-      const voteClass = s.voto<=4?"low":s.voto<=7?"mid":"high";
-      tr.innerHTML = `<td>${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${s.voto ?? "—"}</span></td>`;
+      const voteClass = (s.voto??0)<=4?"low":(s.voto??0)<=7?"mid":"high";
+      const pending = pendingAbandonedCount(s);
+      const statoTxt = pending ? `⏳ ${pending}` : "—";
+      tr.innerHTML = `<td>${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
       tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.screen="teacher-detail"; render(); };
       tbody.appendChild(tr);
     });
@@ -2085,7 +2279,7 @@ function renderTeacherStudenti(){
     accEntries.sort((a,b)=>(a[1].classe+a[1].cognome).localeCompare(b[1].classe+b[1].cognome)).forEach(([uname, acc])=>{
       const row = el("div","prova-row");
       const info = el("div","prova-row-info");
-      info.innerHTML = `<strong>${acc.cognome} ${acc.nome} <span style="color:var(--text-dim);font-weight:500;">@${uname}</span></strong><span>${acc.classe} · ${acc.prove.length} prove · fatturato ${calcFatturato(acc.prove)}€ · credito ${acc.credito||0}€ · voto ${acc.voto ?? "—"}</span>`;
+      info.innerHTML = `<strong>${acc.cognome} ${acc.nome} <span style="color:var(--text-dim);font-weight:500;">@${uname}</span></strong><span>${acc.classe} · ${acc.prove.length} prove · fatturato ${calcFatturato(acc.prove)}€ · credito ${acc.credito||0}€ · voto ${fmtVoto(acc.voto)}</span>`;
       row.appendChild(info);
       const delBtn = el("button","prova-toggle", "Elimina");
       delBtn.onclick = ()=>{
@@ -2196,7 +2390,7 @@ async function saveFile(filename, dataStr){
 function exportCSV(students){
   let csv = "Cognome,Nome,Classe,NumeroProve,CreditoResiduo,VotoAttuale\n";
   students.forEach(s=>{
-    csv += `${s.cognome},${s.nome},${s.classe},${s.prove.length},${s.credito},${s.voto ?? ""}\n`;
+    csv += `${s.cognome},${s.nome},${s.classe},${s.prove.length},${s.credito},${s.voto!=null ? s.voto.toFixed(1) : ""}\n`;
   });
   saveFile("graphic_skills_check.csv", csv);
 }
@@ -2244,6 +2438,58 @@ function mergeBackup(parsed){
   return {addedAcc, skippedAcc, addedStu, mergedStu};
 }
 
+/* Sblocca una prova "abbandonata": lo studente potrà rifarla da capo. */
+function teacherUnlockProva(uname, provaId){
+  const accounts = getAccounts();
+  const acc = accounts[uname];
+  if(acc && acc.startedProve){
+    delete acc.startedProve[provaId];
+    saveAccounts(accounts);
+    showToast("Prova sbloccata — lo studente potrà rifarla da capo");
+    render();
+  }
+}
+/* Conclude una prova abbandonata con 0€ di fatturato, invece di lasciarla sospesa per sempre. */
+function teacherZeroProva(uname, provaId){
+  const accounts = getAccounts();
+  const acc = accounts[uname];
+  if(!acc) return;
+  if(!confirm("Concludere questa prova con 0€ di fatturato? Lo studente non potrà più rifarla. Operazione non reversibile.")) return;
+  const provaDef = PROVE.find(x=>x.id===provaId);
+  acc.prove.push({ts:Date.now(), provaId, provaTitle: provaDef?provaDef.title:"Prova", gross:0, rounds:null, idea:""});
+  if(acc.startedProve) delete acc.startedProve[provaId];
+  recomputeStudentProve(acc);
+  saveAccounts(accounts);
+  showToast("Prova conclusa con 0€ di fatturato");
+  render();
+}
+/* Il docente modifica a mano il punteggio di un round già fatto (utile soprattutto
+   per i round "ricerca" con le foto, dove serve un giudizio umano) e tutto il resto
+   (compenso della prova, credito, voto, media) viene ricalcolato di conseguenza. */
+function teacherEditRoundScore(uname, provaTs, roundKey){
+  const accounts = getAccounts();
+  const acc = accounts[uname];
+  if(!acc) return;
+  const rec = acc.prove.find(p=>p.ts===provaTs);
+  if(!rec || !rec.rounds || !rec.rounds[roundKey]) return;
+  const rr = rec.rounds[roundKey];
+  const title = (ROUND_REGISTRY[roundKey] && ROUND_REGISTRY[roundKey].title) || roundKey;
+  const input = prompt(`Nuovo punteggio per "${title}" (su ${rr.total}):`, rr.correct);
+  if(input===null) return;
+  let val = parseFloat(String(input).replace(",", "."));
+  if(isNaN(val)){ showToast("Valore non valido"); return; }
+  val = Math.max(0, Math.min(rr.total, val));
+  rr.correct = val;
+  // ricalcola il compenso di questa prova sommando i punteggi di tutti i suoi round
+  let totalPts=0, maxPts=0;
+  Object.values(rec.rounds).forEach(x=>{ if(x){ totalPts += (x.correct||0); maxPts += (x.total||0); } });
+  if(maxPts>0) rec.gross = Math.max(10, Math.min(1000, Math.round((totalPts/maxPts)*1000)));
+  recomputeStudentProve(acc);
+  saveAccounts(accounts);
+  showToast("Punteggio aggiornato ✓");
+  render();
+}
+
 function renderTeacherDetail(){
   $app.appendChild(topbar());
   const screen = el("div","screen");
@@ -2251,6 +2497,7 @@ function renderTeacherDetail(){
   const accounts = getAccounts();
   const s = accounts[state.teacherDetailKey];
   if(!s){ state.screen="teacher-classe-detail"; render(); return; }
+  const uname = state.teacherDetailKey;
 
   const back = el("button","btn-ghost detail-back", "← torna alla lista");
   back.onclick = ()=>{ state.screen="teacher-classe-detail"; render(); };
@@ -2258,16 +2505,42 @@ function renderTeacherDetail(){
 
   const card = el("div","card");
   card.appendChild(el("h2","", `${s.cognome} ${s.nome}`));
-  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${s.voto ?? "—"}`);
+  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}`);
   sub.style.marginTop="6px";
   card.appendChild(sub);
   screen.appendChild(card);
+
+  // ---- prove iniziate ma non completate: il docente decide se sbloccarle o chiuderle a 0€ ----
+  const pendingIds = s.startedProve ? Object.keys(s.startedProve).filter(pid=>
+    s.startedProve[pid] && !s.prove.find(p=>p.provaId===pid)
+  ) : [];
+  if(pendingIds.length){
+    const pendTitle = el("h3","", "⏳ Prove in sospeso");
+    pendTitle.style.cssText="margin-top:22px;margin-bottom:10px;font-size:15px;";
+    screen.appendChild(pendTitle);
+    pendingIds.forEach(pid=>{
+      const provaDef = PROVE.find(x=>x.id===pid);
+      const row = el("div","prova-row");
+      const info = el("div","prova-row-info");
+      info.innerHTML = `<strong>${provaDef?provaDef.icon+" "+provaDef.title:pid}</strong><span>Aperta ma non completata — non può rientrare da sola</span>`;
+      row.appendChild(info);
+      const btnWrap = el("div","");
+      btnWrap.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
+      const unlockBtn = el("button","btn-secondary sm", "Sblocca");
+      unlockBtn.onclick = ()=>teacherUnlockProva(uname, pid);
+      const zeroBtn = el("button","btn-ghost sm", "Concludi a 0€");
+      zeroBtn.onclick = ()=>teacherZeroProva(uname, pid);
+      btnWrap.appendChild(unlockBtn); btnWrap.appendChild(zeroBtn);
+      row.appendChild(btnWrap);
+      screen.appendChild(row);
+    });
+  }
 
   const histTitle = el("h3","", "Storico prove");
   histTitle.style.cssText="margin-top:22px;margin-bottom:10px;font-size:15px;";
   screen.appendChild(histTitle);
 
-  [...s.prove].reverse().forEach((p,i)=>{
+  [...s.prove].sort((a,b)=>b.ts-a.ts).forEach(p=>{
     const item = el("div","hist-item");
     const top = el("div","hist-top");
     top.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
@@ -2276,41 +2549,12 @@ function renderTeacherDetail(){
     line.style.fontSize="12px"; line.style.color="var(--text-dim)";
     item.appendChild(line);
 
-    const bd = el("div","breakdown");
-    let bdHtml = "";
-    if(p.rounds){
-      Object.keys(p.rounds).forEach(k=>{
-        const rr = p.rounds[k];
-        if(rr){
-          const title = (ROUND_REGISTRY[k] && ROUND_REGISTRY[k].title) || k;
-          bdHtml += `${title}: ${rr.correct}/${rr.total}<br>`;
-        }
-      });
-    }
-    if(p.idea) bdHtml += `<br><em>Idea boss fight: "${p.idea}"</em>`;
-    bd.innerHTML = bdHtml;
-    item.appendChild(bd);
-
-    // foto caricate nei round "ricerca" — da controllare a occhio
-    if(p.rounds){
-      Object.keys(p.rounds).forEach(k=>{
-        const rr = p.rounds[k];
-        if(rr && rr.photos && Object.keys(rr.photos).length){
-          const photoWrap = el("div","teacher-photo-review");
-          const title = (ROUND_REGISTRY[k] && ROUND_REGISTRY[k].title) || k;
-          photoWrap.appendChild(el("p","", `📎 Foto caricate — ${title}`));
-          const grid = el("div","teacher-photo-grid");
-          Object.values(rr.photos).forEach(src=>{
-            const img = document.createElement("img");
-            img.src = src; img.className = "teacher-photo-thumb";
-            img.onclick = ()=>window.open(src, "_blank");
-            grid.appendChild(img);
-          });
-          photoWrap.appendChild(grid);
-          item.appendChild(photoWrap);
-        }
-      });
-    }
+    const detail = buildProvaReviewBlock(p, {
+      editable:true,
+      onEditRound:(roundKey)=>teacherEditRoundScore(uname, p.ts, roundKey)
+    });
+    detail.style.marginTop = "8px";
+    item.appendChild(detail);
 
     screen.appendChild(item);
   });
