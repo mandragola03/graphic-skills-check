@@ -1877,16 +1877,21 @@ function renderAperteRound(round){
     ta.oninput = e=>{
       texts[q.id] = e.target.value;
       syncAperteCount(round);
+      updateContBtn();
     };
     box.appendChild(ta);
     card.appendChild(box);
   });
 
-  const doneCount = round.questions.filter(q=>(texts[q.id]||"").trim().length>0).length;
-  const contBtn = el("button","btn-primary", doneCount===round.questions.length ? "Conferma e continua →" : `Rispondi a tutte per continuare (${doneCount}/${round.questions.length})`);
-  contBtn.disabled = doneCount < round.questions.length;
+  const contBtn = el("button","btn-primary","");
   contBtn.style.marginTop = "18px";
-  contBtn.onclick = ()=>nextRoundOrFinish();
+  contBtn.onclick = ()=>{ if(!contBtn.disabled) nextRoundOrFinish(); };
+  function updateContBtn(){
+    const doneCount = round.questions.filter(q=>(texts[q.id]||"").trim().length>0).length;
+    contBtn.textContent = doneCount===round.questions.length ? "Conferma e continua →" : `Rispondi a tutte per continuare (${doneCount}/${round.questions.length})`;
+    contBtn.disabled = doneCount < round.questions.length;
+  }
+  updateContBtn();
   card.appendChild(contBtn);
 
   screen.appendChild(card);
