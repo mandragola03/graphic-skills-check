@@ -227,7 +227,7 @@ button:active{transform:scale(0.98);}
 .teacher-photo-review{margin-top:10px;}
 .teacher-photo-review p{font-size:11.5px;color:var(--text-dim);font-weight:700;margin-bottom:6px;}
 .teacher-photo-grid{display:flex;gap:8px;flex-wrap:wrap;}
-.teacher-photo-thumb{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer;}
+.teacher-photo-thumb{width:150px;height:150px;object-fit:cover;border-radius:12px;border:1px solid var(--line);cursor:pointer;}
 
 .opts{display:flex;flex-direction:column;gap:11px;}
 .opt{
@@ -352,6 +352,19 @@ button:active{transform:scale(0.98);}
 }
 .hist-item .hist-top{display:flex;justify-content:space-between;margin-bottom:7px;font-weight:600;align-items:center;}
 .breakdown{font-size:12.5px;color:var(--text-dim);margin-top:7px;line-height:1.7;}
+
+.review-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--text-dim);margin-bottom:14px;padding:10px 14px;background:var(--surface-2);border-radius:12px;}
+.review-legend span{display:inline-flex;align-items:center;gap:6px;}
+.legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex-shrink:0;}
+.legend-dot.green{background:var(--green);}
+.legend-dot.red{background:var(--red);}
+.legend-dot.yellow{background:var(--gold);}
+.review-q{margin-bottom:16px;}
+.review-q .review-q-text{font-size:13.5px;font-weight:600;margin-bottom:7px;line-height:1.4;}
+.review-opt{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:13px;margin-bottom:6px;line-height:1.4;color:var(--text-dim);}
+.review-opt.correct-picked{border-color:var(--green);background:rgba(79,214,122,.14);color:var(--green);font-weight:600;}
+.review-opt.wrong-picked{border-color:var(--red);background:rgba(239,91,91,.14);color:var(--red);font-weight:600;}
+.review-opt.correct-reveal{border-color:var(--gold);background:rgba(242,184,7,.14);color:var(--gold);font-weight:600;}
 .toolbar{display:flex;gap:10px;margin-top:20px;}
 .toolbar button{flex:1;}
 .class-filter{display:flex;gap:7px;margin:18px 0 6px;flex-wrap:wrap;}
@@ -851,6 +864,15 @@ function provaIcon(provaId){
 function buildProvaReviewBlock(p, opts){
   opts = opts || {};
   const wrap = el("div","");
+
+  // legenda: solo se almeno un round ha i dati per la correzione colorata (le prove più vecchie non li hanno)
+  const hasColoredReview = p.rounds && Object.values(p.rounds).some(rr=>rr && rr.picked);
+  if(hasColoredReview){
+    const legend = el("div","review-legend");
+    legend.innerHTML = `<span><span class="legend-dot green"></span>Risposta data — giusta</span><span><span class="legend-dot red"></span>Risposta data — sbagliata</span><span><span class="legend-dot yellow"></span>La risposta corretta era questa</span>`;
+    wrap.appendChild(legend);
+  }
+
   if(p.rounds){
     Object.keys(p.rounds).forEach(k=>{
       const rr = p.rounds[k];
@@ -869,8 +891,28 @@ function buildProvaReviewBlock(p, opts){
         box.appendChild(editBtn);
       }
 
-      // correzione round quiz: domanda per domanda
-      if(rr.scored && roundDef && roundDef.questions){
+      // correzione round quiz, con risposte colorate (verde/rosso/giallo)
+      if(rr.picked && roundDef && roundDef.questions){
+        const qWrap = el("div","");
+        roundDef.questions.forEach((q, qi)=>{
+          const pickedIdx = rr.picked[qi];
+          if(pickedIdx===undefined) return;
+          const qBox = el("div","review-q");
+          qBox.appendChild(el("div","review-q-text", q.q));
+          const isCorrect = pickedIdx===q.correct;
+          q.opts.forEach((optTxt, oi)=>{
+            let cls = "review-opt";
+            if(oi===pickedIdx && isCorrect) cls += " correct-picked";
+            else if(oi===pickedIdx && !isCorrect) cls += " wrong-picked";
+            else if(oi===q.correct && !isCorrect) cls += " correct-reveal";
+            const optDiv = el("div", cls, optTxt);
+            qBox.appendChild(optDiv);
+          });
+          qWrap.appendChild(qBox);
+        });
+        box.appendChild(qWrap);
+      } else if(rr.scored && roundDef && roundDef.questions){
+        // ripiego per le prove fatte prima di questo aggiornamento (senza il dettaglio "picked")
         const qList = el("div","breakdown");
         let html = "";
         roundDef.questions.forEach((q, qi)=>{
@@ -952,7 +994,9 @@ let state = {
   teacherFilter:"tutte",
   teacherDetailKey:null,
   lastImportCount:0,
-  expandedProvaTs:null
+  expandedProvaTs:null,
+  teacherPreviewProvaId:null,
+  pendingDispensa:null
 };
 
 const $app = document.getElementById("app");
@@ -968,7 +1012,7 @@ function render(){
   if(state.screen==="teacher-hub") return renderTeacherHub();
   if(state.screen==="teacher-prove") return renderTeacherProve();
   if(state.screen==="teacher-classi") return renderTeacherClassi();
-  if(state.screen==="teacher-risultati") return renderTeacherRisultati();
+  if(state.screen==="teacher-dispense") return renderTeacherDispense();
   if(state.screen==="teacher-classe-detail") return renderTeacherClasseDetail();
   if(state.screen==="teacher-studenti") return renderTeacherStudenti();
   if(state.screen==="teacher-importa") return renderTeacherImporta();
@@ -1041,6 +1085,7 @@ function renderHome(){
 const ACCOUNTS_KEY = "gsc_accounts_v1"; // ripiego locale, usato solo se Firestore non è raggiungibile
 let ACCOUNTS_CACHE = {};
 let db = null; // istanza Firestore, valorizzata da initFirebase()
+let DISPENSE_CACHE = {}; // id -> {classe, filename, url, uploadedAt}, sincronizzata in tempo reale
 
 function getAccounts(){
   if(db) return ACCOUNTS_CACHE;
@@ -1083,6 +1128,12 @@ function initFirebase(){
       SHARED_PROVA_STATE = (doc.exists && doc.data()) || {};
       render();
     }, err=>console.error("Errore connessione Firestore (config)", err));
+    db.collection("dispense").onSnapshot(snap=>{
+      const next = {};
+      snap.forEach(doc=>{ next[doc.id] = doc.data(); });
+      DISPENSE_CACHE = next;
+      render();
+    }, err=>console.error("Errore connessione Firestore (dispense)", err));
   }catch(e){
     console.error("Firebase init fallita", e);
     db = null;
@@ -1092,13 +1143,58 @@ function initFirebase(){
 function normalizeUsername(u){ return (u||"").trim().toLowerCase().replace(/\s+/g,""); }
 function calcFatturato(prove){ return (prove||[]).reduce((sum,p)=>sum+(p.gross||0), 0); }
 
-/* Media voto con un decimale (es. 7.3), tra 1 e 10. null se lo studente non ha ancora prove. */
+/* ---- Dispense (PDF delle lezioni), organizzate per classe, su Firebase Storage ---- */
+function getDispenseForClasse(classe){
+  return Object.entries(DISPENSE_CACHE)
+    .map(([id,d])=>({id, ...d}))
+    .filter(d=> classe==="tutte" || d.classe===classe)
+    .sort((a,b)=>b.uploadedAt-a.uploadedAt);
+}
+/* Aggiunge una dispensa come LINK (es. Google Drive), non carica alcun file:
+   l'app salva solo il link e il titolo, niente Firebase Storage né costi. */
+async function addDispensaLink(classe, filename, url){
+  if(!db){ showToast("Database non disponibile — controlla la connessione"); return; }
+  if(!filename || !filename.trim()){ showToast("Dai un titolo al PDF"); return; }
+  if(!url || !/^https?:\/\//i.test(url.trim())){ showToast("Il link non sembra valido — deve iniziare con https://"); return; }
+  try{
+    await db.collection("dispense").add({
+      classe, filename:filename.trim(), url:url.trim(), uploadedAt: Date.now()
+    });
+    showToast("Dispensa aggiunta ✓");
+  }catch(e){
+    console.error("Errore salvataggio dispensa", e);
+    showToast("Salvataggio non riuscito — controlla la connessione");
+  }
+}
+async function deleteDispensa(id){
+  if(!confirm("Eliminare questa dispensa? Il file su Drive non viene toccato, sparisce solo dall'app. Operazione non reversibile.")) return;
+  try{
+    await db.collection("dispense").doc(id).delete();
+    showToast("Dispensa eliminata ✓");
+  }catch(e){
+    console.error("Errore eliminazione dispensa", e);
+    showToast("Eliminazione non riuscita");
+  }
+  render();
+}
+
+/* Media voto con un decimale (es. 7.3), tra 2 e 10. null se lo studente non ha ancora prove. */
 function computeAvgVoto(prove){
   if(!prove || !prove.length) return null;
   const avg = prove.reduce((s,p)=>s+p.voto, 0) / prove.length;
-  return Math.max(1, Math.min(10, Math.round(avg*10)/10));
+  return Math.max(2, Math.min(10, Math.round(avg*10)/10));
 }
 function fmtVoto(v){ return (v===null || v===undefined) ? "—" : v.toFixed(1); }
+
+/* Formula voto: si parte da 2 (voto minimo garantito, anche con 0€ di fatturato,
+   es. prova annullata dal docente), poi ogni 200€ di totale fa salire di un punto,
+   fino a un massimo di 10. Restituisce anche il credito residuo dopo aver "speso"
+   i 200€ per ogni punto di voto guadagnato. */
+function votoFromTotale(totale){
+  const voto = Math.max(2, Math.min(10, 2 + Math.floor(totale/200)));
+  const credito = totale - (voto-2)*200;
+  return {voto, credito};
+}
 
 /* Ricalcola in ordine cronologico tutta la catena credito -> totale -> voto per ogni
    prova dello studente, e aggiorna il credito residuo e la media voto finali.
@@ -1110,8 +1206,9 @@ function recomputeStudentProve(acc){
   acc.prove.forEach(p=>{
     p.creditoPrima = credito;
     p.totale = (p.gross||0) + credito;
-    p.voto = Math.max(1, Math.min(10, Math.floor(p.totale/100)));
-    credito = p.totale - p.voto*100;
+    const r = votoFromTotale(p.totale);
+    p.voto = r.voto;
+    credito = r.credito;
   });
   acc.credito = credito;
   acc.voto = computeAvgVoto(acc.prove);
@@ -1370,6 +1467,23 @@ function renderStudentProfile(){
 
   screen.appendChild(card);
 
+  const classDispense = getDispenseForClasse(acc.classe);
+  if(classDispense.length){
+    const dispTitle = el("h3","", "📚 Dispense della tua classe");
+    dispTitle.style.cssText="margin-top:24px;margin-bottom:12px;font-size:15px;";
+    screen.appendChild(dispTitle);
+    classDispense.forEach(d=>{
+      const row = el("div","prova-row");
+      const info = el("div","prova-row-info");
+      info.innerHTML = `<strong>📄 ${d.filename}</strong><span>${new Date(d.uploadedAt).toLocaleDateString("it-IT")}</span>`;
+      row.appendChild(info);
+      const openBtn = el("button","btn-secondary sm", "Apri");
+      openBtn.onclick = ()=>window.open(d.url, "_blank");
+      row.appendChild(openBtn);
+      screen.appendChild(row);
+    });
+  }
+
   if(acc.prove.length){
     const histTitle = el("h3","", "Le tue prove");
     histTitle.style.cssText="margin-top:24px;margin-bottom:12px;font-size:15px;";
@@ -1459,6 +1573,7 @@ function finishProva(){
     if(!a) return [r.key, null];
     const base = {correct:a.correct, total:a.total, photos:a.photos || null};
     if(a.scored) base.scored = a.scored;     // round quiz: quale domanda giusta/sbagliata
+    if(a.picked) base.picked = a.picked;     // round quiz: quale opzione ha scelto (per la correzione colorata)
     if(a.selected) base.selected = a.selected; // round "detective": cosa aveva selezionato
     if(a.steps) base.steps = a.steps;          // round boss fight: scelte fatte
     return [r.key, base];
@@ -1475,7 +1590,7 @@ function finishProva(){
     saveAccounts(accounts);
   } else {
     // fallback, non dovrebbe succedere: profilo non trovato
-    const voto = Math.max(1, Math.min(10, Math.floor(gross/100) || 1));
+    const voto = votoFromTotale(gross).voto;
     prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, creditoPrima:0, totale:gross, voto, rounds:roundsSnapshot, idea};
   }
   state.lastProva = prova;
@@ -1511,6 +1626,8 @@ function renderQuizRound(round){
       state.answers[round.key]._last = isCorrect;
       if(!state.answers[round.key].scored) state.answers[round.key].scored = {};
       state.answers[round.key].scored[qi] = isCorrect ? 1 : 0;
+      if(!state.answers[round.key].picked) state.answers[round.key].picked = {};
+      state.answers[round.key].picked[qi] = idx;
       state.answers[round.key].correct = Object.values(state.answers[round.key].scored).reduce((a,b)=>a+b,0);
       // small delay feel via direct advance
       if(qi < round.questions.length-1){
@@ -1939,8 +2056,7 @@ function importCodes(text){
       if(!db.students[key]) db.students[key] = {nome:payload.n, cognome:payload.c, classe:payload.cl, username:payload.u||null, credito:0, prove:[]};
       const s = db.students[key];
       const totale = payload.gross + s.credito;
-      const voto = Math.max(1, Math.min(10, Math.floor(totale/100)));
-      const nuovoCredito = totale - voto*100;
+      const {voto, credito:nuovoCredito} = votoFromTotale(totale);
       s.prove.push({
         ts:payload.ts, provaId:payload.provaId||null, provaTitle:payload.provaTitle||"Prova",
         gross:payload.gross, creditoPrima:s.credito, totale, voto,
@@ -1976,7 +2092,7 @@ function renderTeacherHub(){
   const tiles = [
     {id:"teacher-prove", icon:"🗓️", title:"Prove", desc:"Sblocca o blocca le prove disponibili per classe"},
     {id:"teacher-classi", icon:"🏫", title:"Classi", desc: pendingCount ? `Studenti per classe · ⏳ ${pendingCount} prove in sospeso` : "Sfoglia gli studenti, divisi per classe"},
-    {id:"teacher-risultati", icon:"📈", title:"Risultati", desc:"Nome, cognome e media voto, divisi per classe"},
+    {id:"teacher-dispense", icon:"📚", title:"Dispense", desc:"Carica i PDF delle lezioni, organizzati per classe"},
     {id:"teacher-studenti", icon:"👥", title:"Studenti registrati", desc:`${Object.keys(accounts).length} profili — gestione account`},
     {id:"teacher-backup", icon:"💾", title:"Backup", desc:"Esporta o ripristina tutti i dati"}
   ];
@@ -2010,6 +2126,159 @@ function sectionTitle(icon, title){
   wrap.style.marginBottom="22px";
   wrap.innerHTML = `<h1 style="font-size:26px;">${icon} ${title}</h1>`;
   return wrap;
+}
+
+/* Anteprima completa di una prova per il docente: tutte le domande/task di ogni
+   round, con la risposta corretta segnata — utile per rivedere il contenuto prima
+   di assegnarla a una classe. */
+function buildProvaPreviewBlock(prova){
+  const wrap = el("div","");
+  prova.rounds.forEach(r=>{
+    const box = el("div","hist-item");
+    const top = el("div","hist-top");
+    top.innerHTML = `<span>${r.rk} — ${r.title}</span>`;
+    box.appendChild(top);
+    if(r.sub){
+      const subP = el("p","", r.sub);
+      subP.style.cssText = "font-size:12.5px;margin-bottom:8px;";
+      box.appendChild(subP);
+    }
+    const list = el("div","breakdown");
+    let html = "";
+    if(r.type==="quiz"){
+      r.questions.forEach((q,qi)=>{ html += `${qi+1}. ${q.q}<br><em>Risposta corretta: ${q.opts[q.correct]}</em><br>`; });
+    } else if(r.type==="multi"){
+      r.options.forEach(o=>{ html += `${o.ok?"✓ problema reale":"○ non è un problema"} — ${o.t}<br>`; });
+    } else if(r.type==="boss"){
+      html += `<em>Brief:</em><br>${r.brief.replace(/\n/g,"<br>")}<br><br>`;
+      r.steps.forEach(step=>{
+        html += `<strong>${step.label}</strong>:<br>`;
+        step.opts.forEach(o=>{ html += `&nbsp;&nbsp;${o.ok?"✓":"○"} ${o.t}<br>`; });
+      });
+      html += `<br><em>Prompt idea finale:</em> ${prova.ideaPrompt || r.ideaPrompt || ""}`;
+    } else if(r.type==="ricerca"){
+      r.tasks.forEach((t,ti)=>{ html += `${ti+1}. ${t.prompt}<br>`; });
+    }
+    list.innerHTML = html;
+    box.appendChild(list);
+    wrap.appendChild(box);
+  });
+  return wrap;
+}
+
+function renderTeacherDispense(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(sectionTitle("📚","Dispense"));
+
+  const howToCard = el("div","card");
+  howToCard.style.cssText = "margin-bottom:16px;background:var(--surface-2);";
+  const howToP = el("p","", "Come funziona: carica prima il PDF su Google Drive, imposta la condivisione su \"Chiunque abbia il link\", poi incolla qui il link. L'app salva solo il link, non il file.");
+  howToP.style.cssText = "font-size:12.5px;line-height:1.6;";
+  howToCard.appendChild(howToP);
+  screen.appendChild(howToCard);
+
+  // ---- bottone "+" sempre visibile: titolo + link + classe ----
+  if(!state.pendingDispensa){
+    const addBtn = el("button","btn-primary", "＋ Aggiungi una dispensa");
+    addBtn.onclick = ()=>{ state.pendingDispensa = {titolo:"", link:"", classe:null}; render(); };
+    screen.appendChild(addBtn);
+  } else {
+    const pd = state.pendingDispensa;
+    const pickCard = el("div","card");
+    pickCard.style.marginTop = "6px";
+
+    const fTitolo = el("div","field");
+    fTitolo.innerHTML = `<label>Titolo del PDF</label>`;
+    const inpTitolo = document.createElement("input");
+    inpTitolo.value = pd.titolo; inpTitolo.placeholder = "es. Lezione 1 - Colore e contrasto";
+    inpTitolo.oninput = e=>pd.titolo = e.target.value;
+    fTitolo.appendChild(inpTitolo);
+    pickCard.appendChild(fTitolo);
+
+    const fLink = el("div","field");
+    fLink.innerHTML = `<label>Link di Google Drive</label>`;
+    const inpLink = document.createElement("input");
+    inpLink.value = pd.link; inpLink.placeholder = "https://drive.google.com/file/d/...";
+    inpLink.oninput = e=>pd.link = e.target.value;
+    fLink.appendChild(inpLink);
+    pickCard.appendChild(fLink);
+
+    const pickLbl = el("p","", "A quale classe mostrarla?");
+    pickLbl.style.cssText = "font-size:13px;color:var(--text-dim);margin-bottom:8px;font-weight:500;";
+    pickCard.appendChild(pickLbl);
+    const pick = el("div","class-pick");
+    TUTTE_LE_CLASSI.forEach(c=>{
+      const b = el("button","", c);
+      if(pd.classe===c) b.classList.add("sel");
+      b.onclick = ()=>{ pd.classe = c; render(); };
+      pick.appendChild(b);
+    });
+    pickCard.appendChild(pick);
+
+    const confirmBtn = el("button","btn-primary", "Aggiungi →");
+    confirmBtn.style.marginTop = "16px";
+    confirmBtn.onclick = async ()=>{
+      const {titolo, link, classe} = state.pendingDispensa;
+      if(!classe){ showToast("Scegli a quale classe mostrarla"); return; }
+      state.pendingDispensa = null;
+      await addDispensaLink(classe, titolo, link);
+      render();
+    };
+    pickCard.appendChild(confirmBtn);
+
+    const cancelBtn = el("button","btn-ghost", "Annulla");
+    cancelBtn.style.marginTop = "8px";
+    cancelBtn.onclick = ()=>{ state.pendingDispensa = null; render(); };
+    pickCard.appendChild(cancelBtn);
+
+    screen.appendChild(pickCard);
+  }
+
+  // ---- filtro per vedere le dispense già aggiunte ----
+  const filterBar = el("div","class-filter");
+  filterBar.style.marginTop = "18px";
+  const allBtn = el("button","", "Tutte");
+  if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+  allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
+  filterBar.appendChild(allBtn);
+  TUTTE_LE_CLASSI.forEach(c=>{
+    const b = el("button","", c);
+    if(state.teacherFilter===c) b.classList.add("sel");
+    b.onclick=()=>{ state.teacherFilter=c; render(); };
+    filterBar.appendChild(b);
+  });
+  screen.appendChild(filterBar);
+
+  const list = getDispenseForClasse(state.teacherFilter);
+  const listTitle = el("h3","", "Dispense aggiunte");
+  listTitle.style.cssText = "margin-top:16px;margin-bottom:10px;font-size:15px;";
+  screen.appendChild(listTitle);
+
+  if(!list.length){
+    const empty = el("div","empty-state");
+    empty.innerHTML = `<p>Ancora nessuna dispensa${state.teacherFilter!=="tutte" ? " per questa classe" : ""}.</p>`;
+    screen.appendChild(empty);
+  } else {
+    list.forEach(d=>{
+      const row = el("div","prova-row");
+      const info = el("div","prova-row-info");
+      info.innerHTML = `<strong>📄 ${d.filename}</strong><span>${d.classe} · ${new Date(d.uploadedAt).toLocaleDateString("it-IT")}</span>`;
+      row.appendChild(info);
+      const btnWrap = el("div","");
+      btnWrap.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
+      const openBtn = el("button","btn-secondary sm", "Apri");
+      openBtn.onclick = ()=>window.open(d.url, "_blank");
+      const delBtn = el("button","btn-ghost sm", "Elimina");
+      delBtn.onclick = ()=>deleteDispensa(d.id);
+      btnWrap.appendChild(openBtn); btnWrap.appendChild(delBtn);
+      row.appendChild(btnWrap);
+      screen.appendChild(row);
+    });
+  }
+
+  screen.appendChild(hubBackButton());
+  $app.appendChild(screen);
 }
 
 function renderTeacherProve(){
@@ -2052,6 +2321,18 @@ function renderTeacherProve(){
     quickRow.appendChild(showAllBtn);
     quickRow.appendChild(hideAllBtn);
     provaMgmt.appendChild(quickRow);
+
+    const isPreviewOpen = state.teacherPreviewProvaId === prova.id;
+    const previewBtn = el("button","btn-ghost", isPreviewOpen ? "▲ Chiudi anteprima" : "👁️ Apri e vedi la prova");
+    previewBtn.style.cssText = "margin-top:10px;width:100%;text-align:center;border:1px solid var(--line);border-radius:12px;";
+    previewBtn.onclick = ()=>{ state.teacherPreviewProvaId = isPreviewOpen ? null : prova.id; render(); };
+    provaMgmt.appendChild(previewBtn);
+
+    if(isPreviewOpen){
+      const preview = buildProvaPreviewBlock(prova);
+      preview.style.marginTop = "12px";
+      provaMgmt.appendChild(preview);
+    }
 
     screen.appendChild(provaMgmt);
   });
@@ -2143,57 +2424,6 @@ function renderTeacherClassi(){
   $app.appendChild(screen);
 }
 
-function renderTeacherRisultati(){
-  $app.appendChild(topbar());
-  const screen = el("div","screen");
-  screen.appendChild(sectionTitle("📈","Risultati"));
-
-  const accounts = getAccounts();
-  const students = Object.entries(accounts).map(([uname,a])=>({key:uname, ...a}));
-  const classes = Array.from(new Set(students.map(s=>s.classe))).sort();
-
-  if(classes.length){
-    const filterBar = el("div","class-filter");
-    const allBtn = el("button","", "Tutte");
-    if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
-    allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
-    filterBar.appendChild(allBtn);
-    classes.forEach(c=>{
-      const b = el("button","", c);
-      if(state.teacherFilter===c) b.classList.add("sel");
-      b.onclick=()=>{ state.teacherFilter=c; render(); };
-      filterBar.appendChild(b);
-    });
-    screen.appendChild(filterBar);
-  }
-
-  const filtered = students.filter(s=> state.teacherFilter==="tutte" || s.classe===state.teacherFilter)
-    .sort((a,b)=> (a.classe+a.cognome).localeCompare(b.classe+b.cognome));
-
-  if(!filtered.length){
-    const empty = el("div","empty-state");
-    empty.innerHTML = `<p>Nessuno studente registrato per questa classe.</p>`;
-    screen.appendChild(empty);
-  } else {
-    const table = document.createElement("table");
-    table.className="stu-table";
-    table.innerHTML = `<thead><tr><th>Studente</th><th>Classe</th><th>Media voto</th></tr></thead>`;
-    const tbody = document.createElement("tbody");
-    filtered.forEach(s=>{
-      const tr = document.createElement("tr");
-      const voteClass = (s.voto??0)<=4?"low":(s.voto??0)<=7?"mid":"high";
-      tr.innerHTML = `<td>${s.cognome} ${s.nome}</td><td>${s.classe}</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td>`;
-      tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.screen="teacher-detail"; render(); };
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    screen.appendChild(table);
-  }
-
-  screen.appendChild(hubBackButton());
-  $app.appendChild(screen);
-}
-
 function renderTeacherClasseDetail(){
   $app.appendChild(topbar());
   const screen = el("div","screen");
@@ -2264,20 +2494,39 @@ function renderTeacherStudenti(){
   screen.appendChild(sectionTitle("👥","Studenti registrati"));
 
   const accCard = el("div","card");
-  const accSub = el("p","", "Account (username + password) creati su questo dispositivo. Sono la stessa lista che vedi in Classi, qui puoi anche eliminarli.");
+  const accSub = el("p","", "Account (username) creati su questo dispositivo. La password è salvata cifrata: nemmeno il docente può vederla — se uno studente la dimentica, va eliminato e ricreato il profilo.");
   accSub.style.cssText="margin-bottom:14px;";
   accCard.appendChild(accSub);
 
   const accounts = getAccounts();
   const accEntries = Object.entries(accounts);
+  const classes = Array.from(new Set(accEntries.map(([,a])=>a.classe))).sort();
 
-  if(!accEntries.length){
-    const empty = el("p","", "Nessun profilo studente creato su questo dispositivo.");
-    empty.style.fontSize="13px";
+  if(classes.length){
+    const filterBar = el("div","class-filter");
+    const allBtn = el("button","", "Tutte");
+    if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+    allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
+    filterBar.appendChild(allBtn);
+    classes.forEach(c=>{
+      const b = el("button","", c);
+      if(state.teacherFilter===c) b.classList.add("sel");
+      b.onclick=()=>{ state.teacherFilter=c; render(); };
+      filterBar.appendChild(b);
+    });
+    accCard.appendChild(filterBar);
+  }
+
+  const filteredEntries = accEntries.filter(([,a])=> state.teacherFilter==="tutte" || a.classe===state.teacherFilter);
+
+  if(!filteredEntries.length){
+    const empty = el("p","", "Nessun profilo studente in questa classe.");
+    empty.style.cssText = "font-size:13px;margin-top:14px;";
     accCard.appendChild(empty);
   } else {
-    accEntries.sort((a,b)=>(a[1].classe+a[1].cognome).localeCompare(b[1].classe+b[1].cognome)).forEach(([uname, acc])=>{
+    filteredEntries.sort((a,b)=>(a[1].classe+a[1].cognome).localeCompare(b[1].classe+b[1].cognome)).forEach(([uname, acc])=>{
       const row = el("div","prova-row");
+      row.style.marginTop = "12px";
       const info = el("div","prova-row-info");
       info.innerHTML = `<strong>${acc.cognome} ${acc.nome} <span style="color:var(--text-dim);font-weight:500;">@${uname}</span></strong><span>${acc.classe} · ${acc.prove.length} prove · fatturato ${calcFatturato(acc.prove)}€ · credito ${acc.credito||0}€ · voto ${fmtVoto(acc.voto)}</span>`;
       row.appendChild(info);
@@ -2426,9 +2675,8 @@ function mergeBackup(parsed){
         if(addedHere>0){
           existing.prove.sort((a,b)=>a.ts-b.ts);
           const last = existing.prove[existing.prove.length-1];
-          existing.credito = last.totale - last.voto*100;
-          const avg = existing.prove.reduce((sum,p)=>sum+p.voto, 0) / existing.prove.length;
-          existing.voto = Math.max(1, Math.min(10, Math.round(avg)));
+          existing.credito = last.totale - (last.voto-2)*200;
+          existing.voto = computeAvgVoto(existing.prove);
           mergedStu++;
         }
       }
