@@ -762,10 +762,66 @@ const ROUND_RICERCA_01 = {
 };
 const ROUNDS_PRIMO_GIORNO = [ROUND_BUONSENSO_QUIZ, ROUND_BUONSENSO_VF, ROUND_RICERCA_01];
 
+/* ---- prova "Le basi della grafica", collegata alla lezione introduttiva ---- */
+const ROUND_QUIZ_BASI = {
+  key:"quiz-basi-grafica", title:"Quiz", rk:"Round 1",
+  sub:"12 domande a risposta multipla sui concetti della lezione. Ordine e risposte mischiati a ogni tentativo.",
+  type:"quiz",
+  randomize:true, // le domande e le opzioni vengono rimescolate a ogni tentativo (vedi buildRandomizedQuizRound)
+  questions:[
+    {q:"Cos'è davvero il lavoro di un designer?", opts:[
+      "Usare sempre colori vivaci","Risolvere un problema di comunicazione","Copiare uno stile che funziona già","Rendere le cose esteticamente belle"], correct:1},
+    {q:"Chi ha inventato la stampa a caratteri mobili, nel 1450?", opts:[
+      "Johannes Gutenberg","Isaac Newton","Rob Janoff","Steve Jobs"], correct:0},
+    {q:"Cosa rappresenta il Bauhaus nella storia della grafica?", opts:[
+      "Il primo programma di grafica digitale","Il primo logo mai disegnato da Apple","Un tipo di carattere tipografico moderno","La prima vera scuola di design"], correct:3},
+    {q:"Cosa significa \"desktop publishing\"?", opts:[
+      "Vendere pubblicità sui giornali locali","Un social network pensato per grafici","Impaginare testi e immagini dentro un computer","Stampare libri interamente a mano"], correct:2},
+    {q:"Quali due programmi diventano lo standard del settore negli anni '90?", opts:[
+      "Photoshop e Illustrator","InDesign e Lightroom","Premiere e Photoshop","Illustrator e Premiere"], correct:0},
+    {q:"Cos'è Adobe Creative Cloud?", opts:[
+      "Un social network per designer","Un negozio online di font","Un tipo di carattere tipografico","Un abbonamento con i programmi Adobe"], correct:3},
+    {q:"Quale programma useresti per un logo nitido a ogni dimensione?", opts:[
+      "Photoshop","Illustrator","Premiere","Lightroom"], correct:1},
+    {q:"Quale programma useresti per impaginare un giornalino di 12 pagine?", opts:[
+      "Lightroom","Premiere","InDesign","Photoshop"], correct:2},
+    {q:"Chi ha fondato Apple nel 1976, insieme a Steve Jobs?", opts:[
+      "Steve Wozniak e Ronald Wayne","Rob Janoff e Ronald Wayne","Bill Gates e Steve Wozniak","Isaac Newton e Rob Janoff"], correct:0},
+    {q:"Chi ha disegnato la mela morsicata arcobaleno nel 1977?", opts:[
+      "Steve Jobs","Ronald Wayne","Steve Wozniak","Rob Janoff"], correct:3},
+    {q:"Perché il logo Apple era arcobaleno fino al 1998?", opts:[
+      "Per gusto personale di Steve Jobs","Perché il computer aveva lo schermo a colori","Per essere più economico da stampare","Per festeggiare un anniversario dell'azienda"], correct:1},
+    {q:"Vero o falso: Steve Jobs ha disegnato personalmente il logo Apple.", opts:[
+      "Falso — era il cliente, non il designer","Vero"], correct:0}
+  ]
+};
+const ROUND_RICERCA_BASI = {
+  key:"ricerca-basi-grafica", title:"Caccia alla grafica", rk:"Round 2",
+  sub:"Vai su internet, cerca, fai uno screenshot e caricalo qui sotto.",
+  type:"ricerca",
+  tasks:[
+    {id:"b1", prompt:"Cerca online un'immagine del primo logo Apple, quello del 1976 (Newton seduto sotto un albero, disegnato da Ron Wayne). Fai uno screenshot e caricalo."},
+    {id:"b2", prompt:"Scegli una delle quattro categorie viste nella lezione — loghi, videogiochi, packaging o social media — e cerca un esempio vero che ti piace. Fai uno screenshot e caricalo."},
+    {id:"b3", prompt:"Cerca online un simbolo o un pittogramma che secondo te comunica benissimo senza bisogno di parole (come l'esempio dell'uscita di emergenza) — scegline uno che TU trovi efficace. Fai uno screenshot e caricalo."}
+  ]
+};
+const ROUND_APERTE_BASI = {
+  key:"aperte-basi-grafica", title:"Con parole tue", rk:"Round 3",
+  sub:"Domande aperte — scrivi con parole tue, non c'è una risposta fissa. Il docente legge e valuta.",
+  type:"aperte",
+  questions:[
+    {id:"a1", q:"Secondo te, perché un logo troppo complicato — come il primo logo Apple del 1976 — è un problema, anche se è bello da vedere?"},
+    {id:"a2", q:"Se dovessi disegnare un simbolo per la tua scuola che si capisca senza bisogno di parole, cosa disegneresti e perché?"},
+    {id:"a3", q:"Come spiegheresti a un amico, con parole tue, la differenza tra un'immagine vettoriale e una raster?"},
+    {id:"a4", q:"Secondo te, perché anche un'azienda enorme come Apple ha avuto bisogno di pagare un designer professionista, invece di farlo disegnare gratis da un dipendente qualsiasi?"}
+  ]
+};
+const ROUNDS_BASI_GRAFICA = [ROUND_QUIZ_BASI, ROUND_RICERCA_BASI, ROUND_APERTE_BASI];
+
 /* Registro di TUTTI i round mai creati (di ogni prova), usato per ritrovare
    titolo/testo quando si legge lo storico di una prova passata. */
 const ROUND_REGISTRY = {};
-[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
+[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO, ...ROUNDS_BASI_GRAFICA].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
 
 /* Le prove disponibili. Ognuna ha una lista di classi a cui è visibile
    (visibleTo) — il docente la cambia dalla sua dashboard, salvata su
@@ -796,10 +852,48 @@ const PROVE = [
     desc:"Quiz di buon senso, vero/falso e una caccia alla grafica vera su internet — 3 round, circa 20 minuti.",
     visibleTo:["1ª Grafica"],
     rounds: ROUNDS_PRIMO_GIORNO
+  },
+  {
+    id:"basi-grafica-01",
+    icon:"🖤",
+    title:"Cose da fare: Le basi della grafica",
+    desc:"Quiz, caccia alla grafica e domande aperte sulla lezione introduttiva — 3 round, circa 20 minuti.",
+    visibleTo:["1ª Grafica"],
+    noAbandonLock:true, // se lo studente esce a metà, la prova si annulla invece di restare bloccata
+    rounds: ROUNDS_BASI_GRAFICA
   }
 ];
 
 /* round della prova che lo studente sta facendo in questo momento */
+/* Rimescola in modo casuale un array (Fisher-Yates), senza toccare l'originale. */
+function shuffleArray(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+/* Per i round quiz con randomize:true, crea una copia con le domande in
+   ordine casuale e, per ognuna, anche le opzioni in ordine casuale (l'indice
+   della risposta corretta viene ricalcolato di conseguenza). Così due
+   studenti che fanno la stessa prova nello stesso momento non vedono le
+   domande né le risposte messe allo stesso modo. */
+function buildRandomizedQuizRound(round){
+  const questions = shuffleArray(round.questions).map(q=>{
+    const opts = q.opts.map((text,i)=>({text, isCorrect:i===q.correct}));
+    const shuffled = shuffleArray(opts);
+    return {q:q.q, opts:shuffled.map(o=>o.text), correct:shuffled.findIndex(o=>o.isCorrect)};
+  });
+  return {...round, questions};
+}
+/* Prepara i round "vivi" per il tentativo che sta per iniziare: i round
+   quiz con randomize:true vengono rimescolati da capo, gli altri restano
+   quelli originali della prova. */
+function buildActiveRounds(prova){
+  return prova.rounds.map(r => (r.type==="quiz" && r.randomize) ? buildRandomizedQuizRound(r) : r);
+}
+
 let ACTIVE_ROUNDS = PROVE[0].rounds;
 let ACTIVE_PROVA = PROVE[0];
 
@@ -892,9 +986,12 @@ function buildProvaReviewBlock(p, opts){
       }
 
       // correzione round quiz, con risposte colorate (verde/rosso/giallo)
-      if(rr.picked && roundDef && roundDef.questions){
+      // uso rr.questions se presente (round mischiato: domande/opzioni viste davvero
+      // in quel tentativo), altrimenti il registro fisso come prima
+      const quizQuestions = rr.questions || (roundDef && roundDef.questions);
+      if(rr.picked && quizQuestions){
         const qWrap = el("div","");
-        roundDef.questions.forEach((q, qi)=>{
+        quizQuestions.forEach((q, qi)=>{
           const pickedIdx = rr.picked[qi];
           if(pickedIdx===undefined) return;
           const qBox = el("div","review-q");
@@ -911,11 +1008,11 @@ function buildProvaReviewBlock(p, opts){
           qWrap.appendChild(qBox);
         });
         box.appendChild(qWrap);
-      } else if(rr.scored && roundDef && roundDef.questions){
+      } else if(rr.scored && quizQuestions){
         // ripiego per le prove fatte prima di questo aggiornamento (senza il dettaglio "picked")
         const qList = el("div","breakdown");
         let html = "";
-        roundDef.questions.forEach((q, qi)=>{
+        quizQuestions.forEach((q, qi)=>{
           const known = Object.prototype.hasOwnProperty.call(rr.scored, qi);
           if(!known) return;
           const ok = rr.scored[qi]===1;
@@ -925,6 +1022,21 @@ function buildProvaReviewBlock(p, opts){
         });
         qList.innerHTML = html;
         box.appendChild(qList);
+      }
+
+      // correzione round "aperte": domanda + risposta scritta dallo studente
+      if(rr.texts && roundDef && roundDef.questions){
+        const aList = el("div","");
+        roundDef.questions.forEach(q=>{
+          const txt = rr.texts[q.id];
+          if(txt===undefined) return;
+          const qBox = el("div","review-q");
+          qBox.appendChild(el("div","review-q-text", q.q));
+          const ansDiv = el("div","review-opt", txt || "(nessuna risposta)");
+          qBox.appendChild(ansDiv);
+          aList.appendChild(qBox);
+        });
+        box.appendChild(aList);
       }
 
       // correzione round "detective": cosa era davvero un problema
@@ -1443,16 +1555,21 @@ function renderStudentProfile(){
       provaCard.innerHTML = `<div class="prova-label">Prova disponibile</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
       const startBtn = el("button","btn-primary", `${prova.icon} Inizia →`);
       startBtn.onclick = ()=>{
-        // segna subito la prova come "iniziata": da qui non si può più rientrare da capo,
-        // anche se lo studente esce o ricarica la pagina prima di finire.
-        const accounts = getAccounts();
-        const accRef = accounts[state.username];
-        if(accRef){
-          if(!accRef.startedProve) accRef.startedProve = {};
-          accRef.startedProve[prova.id] = true;
-          saveAccounts(accounts);
+        // segna la prova come "iniziata" SOLO se la prova non ha noAbandonLock:
+        // per le prove normali, da qui non si può più rientrare da capo anche
+        // uscendo prima di finire. Per quelle con noAbandonLock (es. "Le basi
+        // della grafica") non salviamo nulla: se lo studente esce a metà,
+        // semplicemente la prova si annulla e la ritrova "disponibile" da capo.
+        if(!prova.noAbandonLock){
+          const accounts = getAccounts();
+          const accRef = accounts[state.username];
+          if(accRef){
+            if(!accRef.startedProve) accRef.startedProve = {};
+            accRef.startedProve[prova.id] = true;
+            saveAccounts(accounts);
+          }
         }
-        ACTIVE_ROUNDS = prova.rounds; ACTIVE_PROVA = prova;
+        ACTIVE_ROUNDS = buildActiveRounds(prova); ACTIVE_PROVA = prova;
         state.roundIndex=0; state.currentQIdx=0; state.answers={}; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[];
         state.screen="student-round"; render();
       };
@@ -1533,6 +1650,7 @@ function renderStudentRound(){
   if(round.type==="multi") return renderMultiRound(round);
   if(round.type==="boss") return renderBossRound(round);
   if(round.type==="ricerca") return renderRicercaRound(round);
+  if(round.type==="aperte") return renderAperteRound(round);
 }
 
 function progressHeader(round){
@@ -1576,6 +1694,8 @@ function finishProva(){
     if(a.picked) base.picked = a.picked;     // round quiz: quale opzione ha scelto (per la correzione colorata)
     if(a.selected) base.selected = a.selected; // round "detective": cosa aveva selezionato
     if(a.steps) base.steps = a.steps;          // round boss fight: scelte fatte
+    if(a.texts) base.texts = a.texts;          // round "aperte": risposte scritte dallo studente
+    if(r.randomize && r.type==="quiz") base.questions = r.questions; // salvo le domande nell'ordine/opzioni viste davvero, per una correzione fedele
     return [r.key, base];
   }));
   const idea = (state.answers[BOSS_FIGHT.key] && state.answers[BOSS_FIGHT.key].idea) || "";
@@ -1733,6 +1853,50 @@ function syncRicercaCount(round){
   const correct = round.tasks.filter(t=>photos[t.id]).length;
   state.answers[round.key].correct = correct;
   state.answers[round.key].total = round.tasks.length;
+}
+
+/* --- aperte (domande a risposta libera) round --- */
+function renderAperteRound(round){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+  screen.appendChild(progressHeader(round));
+  const card = el("div","card");
+  card.appendChild(roundHeader(round));
+
+  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length, texts:{}};
+  const texts = state.answers[round.key].texts;
+
+  round.questions.forEach((q, idx)=>{
+    const box = el("div","ricerca-task");
+    box.innerHTML = `<div class="ricerca-num">${idx+1}</div><p>${q.q}</p>`;
+    const ta = document.createElement("textarea");
+    ta.rows = 3;
+    ta.placeholder = "Scrivi qui la tua risposta...";
+    ta.style.cssText = "margin-left:32px; width:calc(100% - 32px);";
+    ta.value = texts[q.id] || "";
+    ta.oninput = e=>{
+      texts[q.id] = e.target.value;
+      syncAperteCount(round);
+    };
+    box.appendChild(ta);
+    card.appendChild(box);
+  });
+
+  const doneCount = round.questions.filter(q=>(texts[q.id]||"").trim().length>0).length;
+  const contBtn = el("button","btn-primary", doneCount===round.questions.length ? "Conferma e continua →" : `Rispondi a tutte per continuare (${doneCount}/${round.questions.length})`);
+  contBtn.disabled = doneCount < round.questions.length;
+  contBtn.style.marginTop = "18px";
+  contBtn.onclick = ()=>nextRoundOrFinish();
+  card.appendChild(contBtn);
+
+  screen.appendChild(card);
+  $app.appendChild(screen);
+}
+function syncAperteCount(round){
+  const texts = state.answers[round.key].texts;
+  const correct = round.questions.filter(q=>(texts[q.id]||"").trim().length>0).length;
+  state.answers[round.key].correct = correct;
+  state.answers[round.key].total = round.questions.length;
 }
 
 /* --- multi (detective) round --- */
@@ -2158,6 +2322,8 @@ function buildProvaPreviewBlock(prova){
       html += `<br><em>Prompt idea finale:</em> ${prova.ideaPrompt || r.ideaPrompt || ""}`;
     } else if(r.type==="ricerca"){
       r.tasks.forEach((t,ti)=>{ html += `${ti+1}. ${t.prompt}<br>`; });
+    } else if(r.type==="aperte"){
+      r.questions.forEach((q,qi)=>{ html += `${qi+1}. ${q.q}<br>`; });
     }
     list.innerHTML = html;
     box.appendChild(list);
