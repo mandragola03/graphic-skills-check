@@ -947,6 +947,43 @@ async function publishProvaState(provaId, visibleTo){
   SHARED_PROVA_STATE = newState;
   return {ok:true, shared:false};
 }
+
+/* Stato condiviso "questa prova conta per il voto": vive su Firestore
+   (collection "config", doc "provaNoVoto"), sincronizzato in tempo reale come
+   la visibilità. Una prova con noVoto:true continua a dare fatturato/credito
+   normalmente, ma il suo voto non entra nella media che vede lo studente —
+   utile per prove "bonus" che il docente non vuole facciano media. */
+let SHARED_PROVA_NOVOTO = {};
+const PROVA_NOVOTO_OVERRIDE_KEY = "gsc_prova_novoto_overrides_v1";
+function getProvaNoVotoOverrides(){
+  try{ return JSON.parse(localStorage.getItem(PROVA_NOVOTO_OVERRIDE_KEY)) || {}; }catch(e){ return {}; }
+}
+function setProvaNoVotoOverride(provaId, disabled){
+  const ov = getProvaNoVotoOverrides();
+  ov[provaId] = disabled;
+  try{ localStorage.setItem(PROVA_NOVOTO_OVERRIDE_KEY, JSON.stringify(ov)); }catch(e){}
+}
+/* true = questa prova NON deve contare per il voto (solo fatturato) */
+function provaHasVotoDisabled(provaId){
+  if(Object.prototype.hasOwnProperty.call(SHARED_PROVA_NOVOTO, provaId)) return !!SHARED_PROVA_NOVOTO[provaId];
+  const ov = getProvaNoVotoOverrides();
+  if(Object.prototype.hasOwnProperty.call(ov, provaId)) return !!ov[provaId];
+  return false; // di default ogni prova conta per il voto
+}
+async function publishProvaNoVoto(provaId, disabled){
+  const newState = {...SHARED_PROVA_NOVOTO, [provaId]: disabled};
+  if(db){
+    try{
+      await db.collection("config").doc("provaNoVoto").set(newState);
+      SHARED_PROVA_NOVOTO = newState;
+      return {ok:true, shared:true};
+    }catch(e){ console.error("Errore salvataggio 'conta per il voto'", e); }
+  }
+  setProvaNoVotoOverride(provaId, disabled);
+  SHARED_PROVA_NOVOTO = newState;
+  return {ok:true, shared:false};
+}
+
 function provaIcon(provaId){
   const p = PROVE.find(x=>x.id===provaId);
   return p ? p.icon : "📋";
@@ -1240,6 +1277,10 @@ function initFirebase(){
       SHARED_PROVA_STATE = (doc.exists && doc.data()) || {};
       render();
     }, err=>console.error("Errore connessione Firestore (config)", err));
+    db.collection("config").doc("provaNoVoto").onSnapshot(doc=>{
+      SHARED_PROVA_NOVOTO = (doc.exists && doc.data()) || {};
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaNoVoto)", err));
     db.collection("dispense").onSnapshot(snap=>{
       const next = {};
       snap.forEach(doc=>{ next[doc.id] = doc.data(); });
@@ -1290,10 +1331,14 @@ async function deleteDispensa(id){
   render();
 }
 
-/* Media voto con un decimale (es. 7.3), tra 2 e 10. null se lo studente non ha ancora prove. */
+/* Media voto con un decimale (es. 7.3), tra 2 e 10. null se lo studente non ha
+   ancora prove che contano per il voto (le prove con voto disattivato dal
+   docente danno comunque fatturato/credito, ma non entrano in questa media). */
 function computeAvgVoto(prove){
   if(!prove || !prove.length) return null;
-  const avg = prove.reduce((s,p)=>s+p.voto, 0) / prove.length;
+  const countable = prove.filter(p=>!provaHasVotoDisabled(p.provaId));
+  if(!countable.length) return null;
+  const avg = countable.reduce((s,p)=>s+p.voto, 0) / countable.length;
   return Math.max(2, Math.min(10, Math.round(avg*10)/10));
 }
 function fmtVoto(v){ return (v===null || v===undefined) ? "—" : v.toFixed(1); }
@@ -2469,6 +2514,22 @@ function renderTeacherProve(){
     const statusLine = el("p","", visibleTo.length ? `Visibile a: ${visibleTo.join(", ")}` : "Nascosta a tutte le classi");
     statusLine.style.cssText = "font-size:12.5px;margin:4px 0 12px;";
     provaMgmt.appendChild(statusLine);
+
+    const votoDisabled = provaHasVotoDisabled(prova.id);
+    const votoRow = el("div","");
+    votoRow.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:14px;";
+    const votoBtn = el("button","vis-chip" + (votoDisabled ? "" : " on"), votoDisabled ? "🚫 Voto disattivato" : "✓ Conta per il voto");
+    votoBtn.onclick = async ()=>{
+      showToast("Aggiorno...");
+      const res = await publishProvaNoVoto(prova.id, !votoDisabled);
+      showToast(res.shared ? "Aggiornato per tutti gli studenti ✓" : "Aggiornato solo su questo dispositivo");
+      if(!res.shared) render();
+    };
+    votoRow.appendChild(votoBtn);
+    const votoHint = el("p","", votoDisabled ? "Fa comunque guadagnare fatturato/credito, ma non pesa sulla media voto." : "Fatturato e voto contano entrambi normalmente.");
+    votoHint.style.cssText = "font-size:11.5px;margin:0;";
+    votoRow.appendChild(votoHint);
+    provaMgmt.appendChild(votoRow);
 
     const chipRow = el("div","class-visibility-chips");
     TUTTE_LE_CLASSI.forEach(classe=>{
