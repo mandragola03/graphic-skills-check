@@ -859,7 +859,6 @@ const PROVE = [
     title:"Cose da fare: Le basi della grafica",
     desc:"Quiz, caccia alla grafica e domande aperte sulla lezione introduttiva — 3 round, circa 20 minuti.",
     visibleTo:["1ª Grafica"],
-    noAbandonLock:true, // se lo studente esce a metà, la prova si annulla invece di restare bloccata
     rounds: ROUNDS_BASI_GRAFICA
   }
 ];
@@ -976,12 +975,30 @@ async function publishProvaNoVoto(provaId, disabled){
     try{
       await db.collection("config").doc("provaNoVoto").set(newState);
       SHARED_PROVA_NOVOTO = newState;
+      recomputeAllAccountsForProva(provaId); // aggiorna SUBITO la media di chi ha già fatto questa prova
       return {ok:true, shared:true};
     }catch(e){ console.error("Errore salvataggio 'conta per il voto'", e); }
   }
   setProvaNoVotoOverride(provaId, disabled);
   SHARED_PROVA_NOVOTO = newState;
+  recomputeAllAccountsForProva(provaId);
   return {ok:true, shared:false};
+}
+/* Quando il docente attiva/disattiva "conta per il voto" per una prova, la
+   media degli studenti che l'hanno già fatta non si aggiorna da sola finché
+   non tocca qualcos'altro: qui la ricalcoliamo subito per tutti loro, così il
+   cambio è retroattivo e immediato, non solo per le prove future. */
+function recomputeAllAccountsForProva(provaId){
+  const accounts = getAccounts();
+  let changed = false;
+  Object.keys(accounts).forEach(uname=>{
+    const acc = accounts[uname];
+    if(acc.prove && acc.prove.some(p=>p.provaId===provaId)){
+      recomputeStudentProve(acc);
+      changed = true;
+    }
+  });
+  if(changed) saveAccounts(accounts);
 }
 
 function provaIcon(provaId){
@@ -1144,6 +1161,8 @@ let state = {
   teacherDetailKey:null,
   lastImportCount:0,
   expandedProvaTs:null,
+  teacherExpandedProvaTs:null,
+  showCredentials:false,
   teacherPreviewProvaId:null,
   pendingDispensa:null
 };
@@ -1406,7 +1425,7 @@ async function doSignup(){
   const accounts = getAccounts();
   if(accounts[uname]){ state.authError="Username già usato su questo Mac — scegline un altro"; render(); return; }
   const passHash = await hashPass(f.password);
-  accounts[uname] = {passHash, nome:f.nome.trim(), cognome:f.cognome.trim(), classe:f.classe, credito:0, voto:null, prove:[], startedProve:{}};
+  accounts[uname] = {passHash, passPlain:f.password, nome:f.nome.trim(), cognome:f.cognome.trim(), classe:f.classe, credito:0, voto:null, prove:[], startedProve:{}};
   saveAccounts(accounts);
   loginSuccess(uname, accounts[uname]);
 }
@@ -1454,23 +1473,6 @@ function renderStudentAuth(){
   tabSignup.onclick = ()=>{ state.authMode="signup"; state.authError=""; render(); };
   tabs.appendChild(tabLogin); tabs.appendChild(tabSignup);
   card.appendChild(tabs);
-
-  // profili già presenti su questo dispositivo -> scorciatoia per il login
-  const accounts = getAccounts();
-  const unames = Object.keys(accounts);
-  if(state.authMode==="login" && unames.length){
-    const lbl = el("div","", "Profili su questo Mac:");
-    lbl.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:500;";
-    card.appendChild(lbl);
-    const chips = el("div","saved-profiles");
-    unames.forEach(u=>{
-      const acc = accounts[u];
-      const chip = el("button","saved-chip", `${acc.nome} (${u})`);
-      chip.onclick = ()=>{ state.authForm.username = u; render(); };
-      chips.appendChild(chip);
-    });
-    card.appendChild(chips);
-  }
 
   if(state.authError){
     card.appendChild(el("div","auth-error", state.authError));
@@ -2699,7 +2701,7 @@ function renderTeacherClasseDetail(){
       const pending = pendingAbandonedCount(s);
       const statoTxt = pending ? `⏳ ${pending}` : "—";
       tr.innerHTML = `<td>${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
-      tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.screen="teacher-detail"; render(); };
+      tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.showCredentials = false; state.screen="teacher-detail"; render(); };
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -2988,6 +2990,26 @@ function renderTeacherDetail(){
   const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}`);
   sub.style.marginTop="6px";
   card.appendChild(sub);
+
+  const credToggle = el("button","btn-ghost sm", state.showCredentials ? "🙈 Nascondi credenziali" : "👁️ Vedi credenziali");
+  credToggle.style.cssText = "margin-top:12px;";
+  credToggle.onclick = ()=>{ state.showCredentials = !state.showCredentials; render(); };
+  card.appendChild(credToggle);
+
+  if(state.showCredentials){
+    const credBox = el("div","");
+    credBox.style.cssText = "background:var(--surface-2);border-radius:12px;padding:14px 16px;margin-top:10px;";
+    const uRow = el("p","", `Username: @${uname}`);
+    uRow.style.cssText = "font-size:13.5px;color:var(--text);font-weight:600;margin-bottom:6px;";
+    credBox.appendChild(uRow);
+    const pRow = el("p","", s.passPlain
+      ? `Password: ${s.passPlain}`
+      : "Password: 🔒 questo profilo è stato creato prima di questo aggiornamento, non è recuperabile. Se lo studente l'ha dimenticata, elimina il suo account da \"Studenti registrati\" e fagliene creare uno nuovo.");
+    pRow.style.cssText = s.passPlain ? "font-size:13.5px;color:var(--text);font-weight:600;" : "font-size:12.5px;color:var(--text-dim);line-height:1.5;";
+    credBox.appendChild(pRow);
+    card.appendChild(credBox);
+  }
+
   screen.appendChild(card);
 
   // ---- prove iniziate ma non completate: il docente decide se sbloccarle o chiuderle a 0€ ----
@@ -3029,12 +3051,20 @@ function renderTeacherDetail(){
     line.style.fontSize="12px"; line.style.color="var(--text-dim)";
     item.appendChild(line);
 
-    const detail = buildProvaReviewBlock(p, {
-      editable:true,
-      onEditRound:(roundKey)=>teacherEditRoundScore(uname, p.ts, roundKey)
-    });
-    detail.style.marginTop = "8px";
-    item.appendChild(detail);
+    const isOpen = state.teacherExpandedProvaTs === p.ts;
+    const toggleBtn = el("button","btn-ghost sm", isOpen ? "▲ Chiudi correzione" : "▾ Apri correzione");
+    toggleBtn.style.marginTop = "8px";
+    toggleBtn.onclick = ()=>{ state.teacherExpandedProvaTs = isOpen ? null : p.ts; render(); };
+    item.appendChild(toggleBtn);
+
+    if(isOpen){
+      const detail = buildProvaReviewBlock(p, {
+        editable:true,
+        onEditRound:(roundKey)=>teacherEditRoundScore(uname, p.ts, roundKey)
+      });
+      detail.style.marginTop = "10px";
+      item.appendChild(detail);
+    }
 
     screen.appendChild(item);
   });
