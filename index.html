@@ -984,6 +984,40 @@ async function publishProvaNoVoto(provaId, disabled){
   recomputeAllAccountsForProva(provaId);
   return {ok:true, shared:false};
 }
+
+/* Stato condiviso "prova archiviata": stesso meccanismo Firestore delle altre
+   impostazioni per prova. Una prova archiviata sparisce dalla lista principale
+   di "Prove" ma resta tutta intatta (visibilità, voto, storico) — si trova
+   nella vista "Archiviate" e si riattiva quando serve. */
+let SHARED_PROVA_ARCHIVED = {};
+const PROVA_ARCHIVED_OVERRIDE_KEY = "gsc_prova_archived_overrides_v1";
+function getProvaArchivedOverrides(){
+  try{ return JSON.parse(localStorage.getItem(PROVA_ARCHIVED_OVERRIDE_KEY)) || {}; }catch(e){ return {}; }
+}
+function setProvaArchivedOverride(provaId, archived){
+  const ov = getProvaArchivedOverrides();
+  ov[provaId] = archived;
+  try{ localStorage.setItem(PROVA_ARCHIVED_OVERRIDE_KEY, JSON.stringify(ov)); }catch(e){}
+}
+function provaIsArchived(provaId){
+  if(Object.prototype.hasOwnProperty.call(SHARED_PROVA_ARCHIVED, provaId)) return !!SHARED_PROVA_ARCHIVED[provaId];
+  const ov = getProvaArchivedOverrides();
+  if(Object.prototype.hasOwnProperty.call(ov, provaId)) return !!ov[provaId];
+  return false;
+}
+async function publishProvaArchived(provaId, archived){
+  const newState = {...SHARED_PROVA_ARCHIVED, [provaId]: archived};
+  if(db){
+    try{
+      await db.collection("config").doc("provaArchived").set(newState);
+      SHARED_PROVA_ARCHIVED = newState;
+      return {ok:true, shared:true};
+    }catch(e){ console.error("Errore salvataggio archiviazione prova", e); }
+  }
+  setProvaArchivedOverride(provaId, archived);
+  SHARED_PROVA_ARCHIVED = newState;
+  return {ok:true, shared:false};
+}
 /* Quando il docente attiva/disattiva "conta per il voto" per una prova, la
    media degli studenti che l'hanno già fatta non si aggiorna da sola finché
    non tocca qualcos'altro: qui la ricalcoliamo subito per tutti loro, così il
@@ -1163,6 +1197,7 @@ let state = {
   expandedProvaTs:null,
   teacherExpandedProvaTs:null,
   showCredentials:false,
+  showArchivedProve:false,
   teacherPreviewProvaId:null,
   pendingDispensa:null
 };
@@ -1300,6 +1335,10 @@ function initFirebase(){
       SHARED_PROVA_NOVOTO = (doc.exists && doc.data()) || {};
       render();
     }, err=>console.error("Errore connessione Firestore (config provaNoVoto)", err));
+    db.collection("config").doc("provaArchived").onSnapshot(doc=>{
+      SHARED_PROVA_ARCHIVED = (doc.exists && doc.data()) || {};
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaArchived)", err));
     db.collection("dispense").onSnapshot(snap=>{
       const next = {};
       snap.forEach(doc=>{ next[doc.id] = doc.data(); });
@@ -2571,7 +2610,40 @@ function renderTeacherProve(){
   const screen = el("div","screen");
   screen.appendChild(sectionTitle("🗓️","Prove"));
 
-  PROVE.forEach(prova=>{
+  const archivedCount = PROVE.filter(p=>provaIsArchived(p.id)).length;
+  const archiveToggle = el("button","btn-ghost", state.showArchivedProve ? "◀ Torna alle prove attive" : `📦 Vedi archiviate (${archivedCount})`);
+  archiveToggle.style.cssText = "margin-bottom:16px;border:1px solid var(--line);border-radius:12px;width:100%;text-align:center;";
+  archiveToggle.onclick = ()=>{ state.showArchivedProve = !state.showArchivedProve; render(); };
+  screen.appendChild(archiveToggle);
+
+  if(state.showArchivedProve){
+    const archivedProve = PROVE.filter(p=>provaIsArchived(p.id));
+    if(!archivedProve.length){
+      const empty = el("div","empty-state");
+      empty.innerHTML = "<p>Nessuna prova archiviata al momento.</p>";
+      screen.appendChild(empty);
+    }
+    archivedProve.forEach(prova=>{
+      const row = el("div","prova-row");
+      const info = el("div","prova-row-info");
+      info.innerHTML = `<strong>${prova.icon} ${prova.title}</strong><span>Archiviata — nascosta dalla lista principale</span>`;
+      row.appendChild(info);
+      const restoreBtn = el("button","btn-secondary sm", "↩️ Riattiva");
+      restoreBtn.onclick = async ()=>{
+        showToast("Aggiorno...");
+        const res = await publishProvaArchived(prova.id, false);
+        showToast(res.shared ? "Riattivata ✓" : "Riattivata solo su questo dispositivo");
+        if(!res.shared) render();
+      };
+      row.appendChild(restoreBtn);
+      screen.appendChild(row);
+    });
+    screen.appendChild(hubBackButton());
+    $app.appendChild(screen);
+    return;
+  }
+
+  PROVE.filter(prova=>!provaIsArchived(prova.id)).forEach(prova=>{
     const visibleTo = getProvaVisibility(prova);
     const provaMgmt = el("div","card");
     provaMgmt.style.marginBottom = "16px";
@@ -2634,6 +2706,16 @@ function renderTeacherProve(){
       preview.style.marginTop = "12px";
       provaMgmt.appendChild(preview);
     }
+
+    const archiveBtn = el("button","btn-ghost sm", "📦 Archivia");
+    archiveBtn.style.cssText = "margin-top:10px;";
+    archiveBtn.onclick = async ()=>{
+      showToast("Aggiorno...");
+      const res = await publishProvaArchived(prova.id, true);
+      showToast(res.shared ? "Archiviata ✓" : "Archiviata solo su questo dispositivo");
+      if(!res.shared) render();
+    };
+    provaMgmt.appendChild(archiveBtn);
 
     screen.appendChild(provaMgmt);
   });
