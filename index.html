@@ -1387,7 +1387,51 @@ function recomputeStudentProve(acc){
     credito = r.credito;
   });
   acc.credito = credito;
-  acc.voto = computeAvgVoto(acc.prove);
+  // se il docente ha impostato un voto a mano, quello vince sul calcolo automatico
+  acc.voto = (acc.votoManualOverride!=null) ? acc.votoManualOverride : computeAvgVoto(acc.prove);
+}
+
+/* Il docente corregge a mano il fatturato totale di uno studente, aggiungendo
+   (o togliendo, con un numero negativo) una voce visibile nel suo storico
+   prove — non è un valore "nascosto": lo studente la vede come tutte le
+   altre, sotto il nome "Correzione manuale del docente". */
+function teacherAdjustFatturato(uname){
+  const accounts = getAccounts();
+  const acc = accounts[uname];
+  if(!acc) return;
+  const input = prompt("Di quanto correggere il fatturato totale? Numero positivo per aggiungere, negativo per togliere (es. 50 oppure -30):", "0");
+  if(input===null) return;
+  const delta = parseFloat(String(input).replace(",", "."));
+  if(isNaN(delta) || delta===0){ showToast("Nessuna modifica (valore non valido o zero)"); return; }
+  acc.prove.push({ts:Date.now(), provaId:"manuale", provaTitle:"Correzione manuale del docente", gross:Math.round(delta), rounds:null, idea:""});
+  recomputeStudentProve(acc);
+  saveAccounts(accounts);
+  showToast("Fatturato corretto ✓");
+  render();
+}
+
+/* Il docente forza il voto attuale a un valore preciso, ignorando la media
+   calcolata dalle prove. Lasciando vuoto il campo, torna al calcolo
+   automatico. */
+function teacherSetVotoOverride(uname){
+  const accounts = getAccounts();
+  const acc = accounts[uname];
+  if(!acc) return;
+  const current = acc.votoManualOverride!=null ? acc.votoManualOverride : "";
+  const input = prompt("Imposta il voto attuale a mano (tra 2 e 10, anche con decimale). Lascia vuoto per tornare al calcolo automatico dalla media delle prove:", current);
+  if(input===null) return;
+  if(String(input).trim()===""){
+    acc.votoManualOverride = null;
+  } else {
+    let val = parseFloat(String(input).replace(",", "."));
+    if(isNaN(val)){ showToast("Valore non valido"); return; }
+    val = Math.max(2, Math.min(10, Math.round(val*10)/10));
+    acc.votoManualOverride = val;
+  }
+  recomputeStudentProve(acc);
+  saveAccounts(accounts);
+  showToast(acc.votoManualOverride!=null ? "Voto impostato a mano ✓" : "Tornato al calcolo automatico ✓");
+  render();
 }
 
 /* Numero di prove che lo studente ha iniziato ma non completato (e non ancora
@@ -1582,6 +1626,8 @@ function renderStudentProfile(){
 
   // lista prove disponibili alla classe dello studente (già fatte/iniziate/da fare)
   const startedProve = acc.startedProve || {};
+  const resumeAllowed = acc.resumeAllowed || {};
+  const inProgressMap = acc.inProgress || {};
   const visibleProve = PROVE.filter(p=>isProvaVisibleForClasse(p, acc.classe));
   if(!visibleProve.length){
     const empty = el("p","", "Il tuo insegnante non ha ancora assegnato nessuna prova alla tua classe.");
@@ -1591,13 +1637,16 @@ function renderStudentProfile(){
   visibleProve.forEach(prova=>{
     const completedRecord = acc.prove.find(p=>p.provaId===prova.id);
     const alreadyStarted = !!startedProve[prova.id];
+    const savedProgress = inProgressMap[prova.id];
+    const canResume = !!resumeAllowed[prova.id] && !!savedProgress;
 
-    let cardState; // "start" | "abandoned" | "done"
+    let cardState; // "start" | "resume" | "abandoned" | "done"
     if(completedRecord) cardState = "done";
+    else if(canResume) cardState = "resume";
     else if(alreadyStarted) cardState = "abandoned";
     else cardState = "start";
 
-    const provaCard = el("div","prova-card" + (cardState==="start" ? "" : " locked"));
+    const provaCard = el("div","prova-card" + (cardState==="start" || cardState==="resume" ? "" : " locked"));
     if(cardState==="start"){
       provaCard.innerHTML = `<div class="prova-label">Prova disponibile</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
       const startBtn = el("button","btn-primary", `${prova.icon} Inizia →`);
@@ -1618,9 +1667,25 @@ function renderStudentProfile(){
         }
         ACTIVE_ROUNDS = buildActiveRounds(prova); ACTIVE_PROVA = prova;
         state.roundIndex=0; state.currentQIdx=0; state.answers={}; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[];
+        if(!prova.noAbandonLock) saveInProgressSnapshot();
         state.screen="student-round"; render();
       };
       provaCard.appendChild(startBtn);
+    } else if(cardState==="resume"){
+      provaCard.innerHTML = `<div class="prova-label">🔓 Sbloccata dal docente</div><h3>${prova.icon} ${prova.title}</h3><p>Riprendi da dove avevi lasciato — round ${savedProgress.roundIndex+1} di ${savedProgress.activeRounds.length}.</p>`;
+      const resumeBtn = el("button","btn-primary", `${prova.icon} Riprendi →`);
+      resumeBtn.onclick = ()=>{
+        const accounts = getAccounts();
+        const accRef = accounts[state.username];
+        if(accRef && accRef.resumeAllowed) delete accRef.resumeAllowed[prova.id]; // un solo utilizzo: se esce di nuovo, serve un altro sblocco
+        saveAccounts(accounts);
+        ACTIVE_ROUNDS = savedProgress.activeRounds; ACTIVE_PROVA = prova;
+        state.roundIndex = savedProgress.roundIndex;
+        state.answers = savedProgress.answers;
+        state.currentQIdx=0; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[];
+        state.screen="student-round"; render();
+      };
+      provaCard.appendChild(resumeBtn);
     } else if(cardState==="done"){
       provaCard.innerHTML = `<div class="prova-label">✓ Completata — voto ${completedRecord.voto}</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
     } else {
@@ -1720,11 +1785,32 @@ function roundHeader(round){
   return h;
 }
 
+/* Salva "dove è arrivato" lo studente dentro questa prova — round per round,
+   non domanda per domanda. Viene richiamata a ogni cambio di round, così se
+   la pagina si blocca o si ricarica, il docente può sbloccarlo e farlo
+   ripartire dall'ultimo round non ancora iniziato, invece che da zero. */
+function saveInProgressSnapshot(){
+  if(!state.username) return;
+  const accounts = getAccounts();
+  const acc = accounts[state.username];
+  if(!acc) return;
+  if(!acc.inProgress) acc.inProgress = {};
+  acc.inProgress[ACTIVE_PROVA.id] = {
+    roundIndex: state.roundIndex,
+    answers: state.answers,
+    activeRounds: ACTIVE_ROUNDS,
+    savedAt: Date.now()
+  };
+  saveAccounts(accounts);
+}
+
 function nextRoundOrFinish(){
   state.roundIndex++;
   state.currentQIdx=0; state.bossStepIdx=0; state.multiSel=[];
   if(state.roundIndex>=ACTIVE_ROUNDS.length){
     finishProva();
+  } else {
+    saveInProgressSnapshot();
   }
   render();
 }
@@ -1752,8 +1838,10 @@ function finishProva(){
     prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, rounds:roundsSnapshot, idea};
     acc.prove.push(prova);
     recomputeStudentProve(acc); // ricalcola credito/totale/voto di questa e di tutte le prove, e la media
-    // la prova è ora completata: tolta dalle "iniziate ma non finite" (resta comunque bloccata perché completata)
+    // la prova è ora completata: tolta dalle "iniziate ma non finite" e dal progresso salvato
     if(acc.startedProve) delete acc.startedProve[ACTIVE_PROVA.id];
+    if(acc.inProgress) delete acc.inProgress[ACTIVE_PROVA.id];
+    if(acc.resumeAllowed) delete acc.resumeAllowed[ACTIVE_PROVA.id];
     saveAccounts(accounts);
   } else {
     // fallback, non dovrebbe succedere: profilo non trovato
@@ -2925,9 +3013,19 @@ function teacherUnlockProva(uname, provaId){
   const accounts = getAccounts();
   const acc = accounts[uname];
   if(acc && acc.startedProve){
-    delete acc.startedProve[provaId];
-    saveAccounts(accounts);
-    showToast("Prova sbloccata — lo studente potrà rifarla da capo");
+    const hasProgress = acc.inProgress && acc.inProgress[provaId];
+    if(hasProgress){
+      // c'è un progresso salvato: lo studente riprende da lì, non da zero
+      if(!acc.resumeAllowed) acc.resumeAllowed = {};
+      acc.resumeAllowed[provaId] = true;
+      saveAccounts(accounts);
+      showToast("Prova sbloccata — lo studente riprenderà da dove aveva lasciato");
+    } else {
+      // nessun progresso salvato (es. prova sbloccata prima di questo aggiornamento): riparte da capo
+      delete acc.startedProve[provaId];
+      saveAccounts(accounts);
+      showToast("Prova sbloccata — nessun progresso salvato, lo studente ripartirà da capo");
+    }
     render();
   }
 }
@@ -2940,6 +3038,8 @@ function teacherZeroProva(uname, provaId){
   const provaDef = PROVE.find(x=>x.id===provaId);
   acc.prove.push({ts:Date.now(), provaId, provaTitle: provaDef?provaDef.title:"Prova", gross:0, rounds:null, idea:""});
   if(acc.startedProve) delete acc.startedProve[provaId];
+  if(acc.inProgress) delete acc.inProgress[provaId];
+  if(acc.resumeAllowed) delete acc.resumeAllowed[provaId];
   recomputeStudentProve(acc);
   saveAccounts(accounts);
   showToast("Prova conclusa con 0€ di fatturato");
@@ -2987,7 +3087,7 @@ function renderTeacherDetail(){
 
   const card = el("div","card");
   card.appendChild(el("h2","", `${s.cognome} ${s.nome}`));
-  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}`);
+  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}${s.votoManualOverride!=null ? " (manuale)" : ""}`);
   sub.style.marginTop="6px";
   card.appendChild(sub);
 
@@ -2995,6 +3095,15 @@ function renderTeacherDetail(){
   credToggle.style.cssText = "margin-top:12px;";
   credToggle.onclick = ()=>{ state.showCredentials = !state.showCredentials; render(); };
   card.appendChild(credToggle);
+
+  const correctionsRow = el("div","");
+  correctionsRow.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;";
+  const fixFattBtn = el("button","btn-ghost sm", "✏️ Correggi fatturato");
+  fixFattBtn.onclick = ()=>teacherAdjustFatturato(uname);
+  const fixVotoBtn = el("button","btn-ghost sm", "✏️ Correggi voto");
+  fixVotoBtn.onclick = ()=>teacherSetVotoOverride(uname);
+  correctionsRow.appendChild(fixFattBtn); correctionsRow.appendChild(fixVotoBtn);
+  card.appendChild(correctionsRow);
 
   if(state.showCredentials){
     const credBox = el("div","");
@@ -3022,13 +3131,17 @@ function renderTeacherDetail(){
     screen.appendChild(pendTitle);
     pendingIds.forEach(pid=>{
       const provaDef = PROVE.find(x=>x.id===pid);
+      const snap = s.inProgress && s.inProgress[pid];
       const row = el("div","prova-row");
       const info = el("div","prova-row-info");
-      info.innerHTML = `<strong>${provaDef?provaDef.icon+" "+provaDef.title:pid}</strong><span>Aperta ma non completata — non può rientrare da sola</span>`;
+      const statoTxt = snap
+        ? `Aperta ma non completata — c'è un progresso salvato: round ${snap.roundIndex+1} di ${snap.activeRounds.length}`
+        : "Aperta ma non completata — nessun progresso salvato, ripartirà da capo";
+      info.innerHTML = `<strong>${provaDef?provaDef.icon+" "+provaDef.title:pid}</strong><span>${statoTxt}</span>`;
       row.appendChild(info);
       const btnWrap = el("div","");
       btnWrap.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
-      const unlockBtn = el("button","btn-secondary sm", "Sblocca");
+      const unlockBtn = el("button","btn-secondary sm", snap ? "Sblocca (riprende)" : "Sblocca (da capo)");
       unlockBtn.onclick = ()=>teacherUnlockProva(uname, pid);
       const zeroBtn = el("button","btn-ghost sm", "Concludi a 0€");
       zeroBtn.onclick = ()=>teacherZeroProva(uname, pid);
