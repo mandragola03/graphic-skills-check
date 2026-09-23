@@ -1387,8 +1387,7 @@ function recomputeStudentProve(acc){
     credito = r.credito;
   });
   acc.credito = credito;
-  // se il docente ha impostato un voto a mano, quello vince sul calcolo automatico
-  acc.voto = (acc.votoManualOverride!=null) ? acc.votoManualOverride : computeAvgVoto(acc.prove);
+  acc.voto = computeAvgVoto(acc.prove);
 }
 
 /* Il docente corregge a mano il fatturato totale di uno studente, aggiungendo
@@ -1413,26 +1412,6 @@ function teacherAdjustFatturato(uname){
 /* Il docente forza il voto attuale a un valore preciso, ignorando la media
    calcolata dalle prove. Lasciando vuoto il campo, torna al calcolo
    automatico. */
-function teacherSetVotoOverride(uname){
-  const accounts = getAccounts();
-  const acc = accounts[uname];
-  if(!acc) return;
-  const current = acc.votoManualOverride!=null ? acc.votoManualOverride : "";
-  const input = prompt("Imposta il voto attuale a mano (tra 2 e 10, anche con decimale). Lascia vuoto per tornare al calcolo automatico dalla media delle prove:", current);
-  if(input===null) return;
-  if(String(input).trim()===""){
-    acc.votoManualOverride = null;
-  } else {
-    let val = parseFloat(String(input).replace(",", "."));
-    if(isNaN(val)){ showToast("Valore non valido"); return; }
-    val = Math.max(2, Math.min(10, Math.round(val*10)/10));
-    acc.votoManualOverride = val;
-  }
-  recomputeStudentProve(acc);
-  saveAccounts(accounts);
-  showToast(acc.votoManualOverride!=null ? "Voto impostato a mano ✓" : "Tornato al calcolo automatico ✓");
-  render();
-}
 
 /* Numero di prove che lo studente ha iniziato ma non completato (e non ancora
    risolte dal docente con sblocco o chiusura a 0€) */
@@ -3087,7 +3066,7 @@ function renderTeacherDetail(){
 
   const card = el("div","card");
   card.appendChild(el("h2","", `${s.cognome} ${s.nome}`));
-  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}${s.votoManualOverride!=null ? " (manuale)" : ""}`);
+  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}`);
   sub.style.marginTop="6px";
   card.appendChild(sub);
 
@@ -3100,9 +3079,7 @@ function renderTeacherDetail(){
   correctionsRow.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;";
   const fixFattBtn = el("button","btn-ghost sm", "✏️ Correggi fatturato");
   fixFattBtn.onclick = ()=>teacherAdjustFatturato(uname);
-  const fixVotoBtn = el("button","btn-ghost sm", "✏️ Correggi voto");
-  fixVotoBtn.onclick = ()=>teacherSetVotoOverride(uname);
-  correctionsRow.appendChild(fixFattBtn); correctionsRow.appendChild(fixVotoBtn);
+  correctionsRow.appendChild(fixFattBtn);
   card.appendChild(correctionsRow);
 
   if(state.showCredentials){
