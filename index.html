@@ -1018,6 +1018,39 @@ async function publishProvaArchived(provaId, archived){
   SHARED_PROVA_ARCHIVED = newState;
   return {ok:true, shared:false};
 }
+
+/* Stato condiviso "titolo personalizzato": stesso meccanismo Firestore delle
+   altre impostazioni per prova. Se il docente non ha mai rinominato una
+   prova, si usa semplicemente il titolo originale scritto nel codice. */
+let SHARED_PROVA_TITLES = {};
+const PROVA_TITLE_OVERRIDE_KEY = "gsc_prova_title_overrides_v1";
+function getProvaTitleOverrides(){
+  try{ return JSON.parse(localStorage.getItem(PROVA_TITLE_OVERRIDE_KEY)) || {}; }catch(e){ return {}; }
+}
+function setProvaTitleOverride(provaId, title){
+  const ov = getProvaTitleOverrides();
+  ov[provaId] = title;
+  try{ localStorage.setItem(PROVA_TITLE_OVERRIDE_KEY, JSON.stringify(ov)); }catch(e){}
+}
+function getProvaTitle(prova){
+  if(Object.prototype.hasOwnProperty.call(SHARED_PROVA_TITLES, prova.id) && SHARED_PROVA_TITLES[prova.id]) return SHARED_PROVA_TITLES[prova.id];
+  const ov = getProvaTitleOverrides();
+  if(Object.prototype.hasOwnProperty.call(ov, prova.id) && ov[prova.id]) return ov[prova.id];
+  return prova.title;
+}
+async function publishProvaTitle(provaId, title){
+  const newState = {...SHARED_PROVA_TITLES, [provaId]: title};
+  if(db){
+    try{
+      await db.collection("config").doc("provaTitles").set(newState);
+      SHARED_PROVA_TITLES = newState;
+      return {ok:true, shared:true};
+    }catch(e){ console.error("Errore salvataggio titolo prova", e); }
+  }
+  setProvaTitleOverride(provaId, title);
+  SHARED_PROVA_TITLES = newState;
+  return {ok:true, shared:false};
+}
 /* Quando il docente attiva/disattiva "conta per il voto" per una prova, la
    media degli studenti che l'hanno già fatta non si aggiorna da sola finché
    non tocca qualcos'altro: qui la ricalcoliamo subito per tutti loro, così il
@@ -1209,6 +1242,8 @@ function render(){
   if(state.screen==="home") return renderHome();
   if(state.screen==="student-auth") return renderStudentAuth();
   if(state.screen==="student-profile") return renderStudentProfile();
+  if(state.screen==="student-prove-list") return renderStudentProveList();
+  if(state.screen==="student-dispense-list") return renderStudentDispenseList();
   if(state.screen==="student-round") return renderStudentRound();
   if(state.screen==="student-result") return renderStudentResult();
   if(state.screen==="teacher-pin") return renderTeacherPin();
@@ -1339,6 +1374,10 @@ function initFirebase(){
       SHARED_PROVA_ARCHIVED = (doc.exists && doc.data()) || {};
       render();
     }, err=>console.error("Errore connessione Firestore (config provaArchived)", err));
+    db.collection("config").doc("provaTitles").onSnapshot(doc=>{
+      SHARED_PROVA_TITLES = (doc.exists && doc.data()) || {};
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaTitles)", err));
     db.collection("dispense").onSnapshot(snap=>{
       const next = {};
       snap.forEach(doc=>{ next[doc.id] = doc.data(); });
@@ -1642,38 +1681,97 @@ function renderStudentProfile(){
   stats.appendChild(s1); stats.appendChild(s2); stats.appendChild(s3); stats.appendChild(s4);
   card.appendChild(stats);
 
-  // lista prove disponibili alla classe dello studente (già fatte/iniziate/da fare)
+  // due card di navigazione, invece di elenchi lunghi direttamente in home:
+  // utile ora che dispense e prove nel tempo diventeranno tante
   const startedProve = acc.startedProve || {};
   const resumeAllowed = acc.resumeAllowed || {};
   const inProgressMap = acc.inProgress || {};
   const visibleProve = PROVE.filter(p=>isProvaVisibleForClasse(p, acc.classe));
+  const todoCount = visibleProve.filter(p=>{
+    if(acc.prove.find(x=>x.provaId===p.id)) return false; // già completata
+    const canResume = !!resumeAllowed[p.id] && !!inProgressMap[p.id];
+    const isAbandoned = !!startedProve[p.id] && !canResume;
+    return !isAbandoned; // "da fare" o "riprendibile" contano, "bloccata" no
+  }).length;
+  const classDispense = getDispenseForClasse(acc.classe);
+
+  const navRow = el("div","");
+  navRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;";
+
+  const provNav = el("button","role-card");
+  provNav.style.cssText = "text-align:left;padding:18px;";
+  provNav.innerHTML = `<div class="icon" style="width:38px;height:38px;font-size:17px;">📋</div><div class="txt"><h3 style="font-size:14.5px;">Prove</h3><p style="font-size:12px;">${todoCount} da fare · ${acc.prove.length} completate</p></div>`;
+  provNav.onclick = ()=>{ state.screen="student-prove-list"; render(); };
+  navRow.appendChild(provNav);
+
+  const dispNav = el("button","role-card");
+  dispNav.style.cssText = "text-align:left;padding:18px;";
+  dispNav.innerHTML = `<div class="icon" style="width:38px;height:38px;font-size:17px;">📚</div><div class="txt"><h3 style="font-size:14.5px;">Dispense</h3><p style="font-size:12px;">${classDispense.length} disponibili</p></div>`;
+  dispNav.onclick = ()=>{ state.screen="student-dispense-list"; render(); };
+  navRow.appendChild(dispNav);
+
+  card.appendChild(navRow);
+
+  screen.appendChild(card);
+
+  const logoutBtn = el("button","btn-ghost", "Esci dal profilo");
+  logoutBtn.style.marginTop="16px";
+  logoutBtn.onclick = ()=>{
+    state.username=null; state.student={nome:"",cognome:"",classe:""};
+    state.screen="home"; render();
+  };
+  screen.appendChild(logoutBtn);
+
+  $app.appendChild(screen);
+}
+
+function renderStudentProveList(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+
+  const accounts = getAccounts();
+  const acc = accounts[state.username];
+  if(!acc){ state.screen="home"; state.username=null; render(); return; }
+
+  const back = el("button","btn-ghost detail-back", "← torna al profilo");
+  back.onclick = ()=>{ state.screen="student-profile"; render(); };
+  screen.appendChild(back);
+
+  const titleEl = el("h2","", "📋 Le tue prove");
+  titleEl.style.cssText = "margin-bottom:16px;";
+  screen.appendChild(titleEl);
+
+  const startedProve = acc.startedProve || {};
+  const resumeAllowed = acc.resumeAllowed || {};
+  const inProgressMap = acc.inProgress || {};
+  const visibleProve = PROVE.filter(p=>isProvaVisibleForClasse(p, acc.classe));
+
+  const todo = el("h3","", "Da fare");
+  todo.style.cssText = "font-size:14px;margin-bottom:10px;color:var(--text-dim);";
+  screen.appendChild(todo);
+
   if(!visibleProve.length){
     const empty = el("p","", "Il tuo insegnante non ha ancora assegnato nessuna prova alla tua classe.");
     empty.style.cssText = "font-size:13px;background:var(--surface-2);border-radius:14px;padding:14px 16px;";
-    card.appendChild(empty);
+    screen.appendChild(empty);
   }
   visibleProve.forEach(prova=>{
     const completedRecord = acc.prove.find(p=>p.provaId===prova.id);
+    if(completedRecord) return; // le completate stanno nella sezione sotto
     const alreadyStarted = !!startedProve[prova.id];
     const savedProgress = inProgressMap[prova.id];
     const canResume = !!resumeAllowed[prova.id] && !!savedProgress;
 
-    let cardState; // "start" | "resume" | "abandoned" | "done"
-    if(completedRecord) cardState = "done";
-    else if(canResume) cardState = "resume";
+    let cardState; // "start" | "resume" | "abandoned"
+    if(canResume) cardState = "resume";
     else if(alreadyStarted) cardState = "abandoned";
     else cardState = "start";
 
     const provaCard = el("div","prova-card" + (cardState==="start" || cardState==="resume" ? "" : " locked"));
     if(cardState==="start"){
-      provaCard.innerHTML = `<div class="prova-label">Prova disponibile</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
+      provaCard.innerHTML = `<div class="prova-label">Prova disponibile</div><h3>${prova.icon} ${getProvaTitle(prova)}</h3><p>${prova.desc}</p>`;
       const startBtn = el("button","btn-primary", `${prova.icon} Inizia →`);
       startBtn.onclick = ()=>{
-        // segna la prova come "iniziata" SOLO se la prova non ha noAbandonLock:
-        // per le prove normali, da qui non si può più rientrare da capo anche
-        // uscendo prima di finire. Per quelle con noAbandonLock (es. "Le basi
-        // della grafica") non salviamo nulla: se lo studente esce a metà,
-        // semplicemente la prova si annulla e la ritrova "disponibile" da capo.
         if(!prova.noAbandonLock){
           const accounts = getAccounts();
           const accRef = accounts[state.username];
@@ -1690,12 +1788,12 @@ function renderStudentProfile(){
       };
       provaCard.appendChild(startBtn);
     } else if(cardState==="resume"){
-      provaCard.innerHTML = `<div class="prova-label">🔓 Sbloccata dal docente</div><h3>${prova.icon} ${prova.title}</h3><p>Riprendi da dove avevi lasciato — round ${savedProgress.roundIndex+1} di ${savedProgress.activeRounds.length}.</p>`;
+      provaCard.innerHTML = `<div class="prova-label">🔓 Sbloccata dal docente</div><h3>${prova.icon} ${getProvaTitle(prova)}</h3><p>Riprendi da dove avevi lasciato — round ${savedProgress.roundIndex+1} di ${savedProgress.activeRounds.length}.</p>`;
       const resumeBtn = el("button","btn-primary", `${prova.icon} Riprendi →`);
       resumeBtn.onclick = ()=>{
         const accounts = getAccounts();
         const accRef = accounts[state.username];
-        if(accRef && accRef.resumeAllowed) delete accRef.resumeAllowed[prova.id]; // un solo utilizzo: se esce di nuovo, serve un altro sblocco
+        if(accRef && accRef.resumeAllowed) delete accRef.resumeAllowed[prova.id];
         saveAccounts(accounts);
         ACTIVE_ROUNDS = savedProgress.activeRounds; ACTIVE_PROVA = prova;
         state.roundIndex = savedProgress.roundIndex;
@@ -1704,36 +1802,15 @@ function renderStudentProfile(){
         state.screen="student-round"; render();
       };
       provaCard.appendChild(resumeBtn);
-    } else if(cardState==="done"){
-      provaCard.innerHTML = `<div class="prova-label">✓ Completata — voto ${completedRecord.voto}</div><h3>${prova.icon} ${prova.title}</h3><p>${prova.desc}</p>`;
     } else {
-      provaCard.innerHTML = `<div class="prova-label">🔒 Prova già iniziata</div><h3>${prova.icon} ${prova.title}</h3><p>L'hai aperta ma non l'hai completata — non puoi rientrare per rifarla da capo.</p>`;
+      provaCard.innerHTML = `<div class="prova-label">🔒 Prova già iniziata</div><h3>${prova.icon} ${getProvaTitle(prova)}</h3><p>L'hai aperta ma non l'hai completata — non puoi rientrare per rifarla da capo.</p>`;
     }
-    card.appendChild(provaCard);
+    screen.appendChild(provaCard);
   });
 
-  screen.appendChild(card);
-
-  const classDispense = getDispenseForClasse(acc.classe);
-  if(classDispense.length){
-    const dispTitle = el("h3","", "📚 Dispense della tua classe");
-    dispTitle.style.cssText="margin-top:24px;margin-bottom:12px;font-size:15px;";
-    screen.appendChild(dispTitle);
-    classDispense.forEach(d=>{
-      const row = el("div","prova-row");
-      const info = el("div","prova-row-info");
-      info.innerHTML = `<strong>📄 ${d.filename}</strong><span>${new Date(d.uploadedAt).toLocaleDateString("it-IT")}</span>`;
-      row.appendChild(info);
-      const openBtn = el("button","btn-secondary sm", "Apri");
-      openBtn.onclick = ()=>window.open(d.url, "_blank");
-      row.appendChild(openBtn);
-      screen.appendChild(row);
-    });
-  }
-
   if(acc.prove.length){
-    const histTitle = el("h3","", "Le tue prove");
-    histTitle.style.cssText="margin-top:24px;margin-bottom:12px;font-size:15px;";
+    const histTitle = el("h3","", "Completate");
+    histTitle.style.cssText="margin-top:28px;margin-bottom:12px;font-size:14px;color:var(--text-dim);";
     screen.appendChild(histTitle);
     [...acc.prove].sort((a,b)=>b.ts-a.ts).forEach(p=>{
       const item = el("div","hist-item");
@@ -1760,13 +1837,41 @@ function renderStudentProfile(){
     });
   }
 
-  const logoutBtn = el("button","btn-ghost", "Esci dal profilo");
-  logoutBtn.style.marginTop="16px";
-  logoutBtn.onclick = ()=>{
-    state.username=null; state.student={nome:"",cognome:"",classe:""};
-    state.screen="home"; render();
-  };
-  screen.appendChild(logoutBtn);
+  $app.appendChild(screen);
+}
+
+function renderStudentDispenseList(){
+  $app.appendChild(topbar());
+  const screen = el("div","screen");
+
+  const accounts = getAccounts();
+  const acc = accounts[state.username];
+  if(!acc){ state.screen="home"; state.username=null; render(); return; }
+
+  const back = el("button","btn-ghost detail-back", "← torna al profilo");
+  back.onclick = ()=>{ state.screen="student-profile"; render(); };
+  screen.appendChild(back);
+
+  const titleEl = el("h2","", "📚 Dispense della tua classe");
+  titleEl.style.cssText = "margin-bottom:16px;";
+  screen.appendChild(titleEl);
+
+  const classDispense = getDispenseForClasse(acc.classe); // già ordinate per data, più recenti prima
+  if(!classDispense.length){
+    const empty = el("div","empty-state");
+    empty.innerHTML = "<p>Il tuo insegnante non ha ancora caricato dispense per la tua classe.</p>";
+    screen.appendChild(empty);
+  }
+  classDispense.forEach(d=>{
+    const row = el("div","prova-row");
+    const info = el("div","prova-row-info");
+    info.innerHTML = `<strong>📄 ${d.filename}</strong><span>${new Date(d.uploadedAt).toLocaleDateString("it-IT")}</span>`;
+    row.appendChild(info);
+    const openBtn = el("button","btn-secondary sm", "Apri");
+    openBtn.onclick = ()=>window.open(d.url, "_blank");
+    row.appendChild(openBtn);
+    screen.appendChild(row);
+  });
 
   $app.appendChild(screen);
 }
@@ -2616,8 +2721,23 @@ function renderTeacherProve(){
   archiveToggle.onclick = ()=>{ state.showArchivedProve = !state.showArchivedProve; render(); };
   screen.appendChild(archiveToggle);
 
+  // filtro per classe: mostra solo le prove visibili a quella classe (o tutte)
+  const filterBar = el("div","class-filter");
+  const allBtn = el("button","", "Tutte");
+  if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+  allBtn.onclick = ()=>{ state.teacherFilter="tutte"; render(); };
+  filterBar.appendChild(allBtn);
+  TUTTE_LE_CLASSI.forEach(c=>{
+    const b = el("button","", c);
+    if(state.teacherFilter===c) b.classList.add("sel");
+    b.onclick = ()=>{ state.teacherFilter=c; render(); };
+    filterBar.appendChild(b);
+  });
+  screen.appendChild(filterBar);
+  const matchesFilter = prova => state.teacherFilter==="tutte" || getProvaVisibility(prova).includes(state.teacherFilter);
+
   if(state.showArchivedProve){
-    const archivedProve = PROVE.filter(p=>provaIsArchived(p.id));
+    const archivedProve = PROVE.filter(p=>provaIsArchived(p.id)).filter(matchesFilter);
     if(!archivedProve.length){
       const empty = el("div","empty-state");
       empty.innerHTML = "<p>Nessuna prova archiviata al momento.</p>";
@@ -2626,7 +2746,7 @@ function renderTeacherProve(){
     archivedProve.forEach(prova=>{
       const row = el("div","prova-row");
       const info = el("div","prova-row-info");
-      info.innerHTML = `<strong>${prova.icon} ${prova.title}</strong><span>Archiviata — nascosta dalla lista principale</span>`;
+      info.innerHTML = `<strong>${prova.icon} ${getProvaTitle(prova)}</strong><span>Archiviata — nascosta dalla lista principale</span>`;
       row.appendChild(info);
       const restoreBtn = el("button","btn-secondary sm", "↩️ Riattiva");
       restoreBtn.onclick = async ()=>{
@@ -2643,13 +2763,35 @@ function renderTeacherProve(){
     return;
   }
 
-  PROVE.filter(prova=>!provaIsArchived(prova.id)).forEach(prova=>{
+  const filteredActive = PROVE.filter(prova=>!provaIsArchived(prova.id)).filter(matchesFilter);
+  if(!filteredActive.length){
+    const empty = el("div","empty-state");
+    empty.innerHTML = "<p>Nessuna prova visibile a questa classe al momento.</p>";
+    screen.appendChild(empty);
+  }
+  filteredActive.forEach(prova=>{
     const visibleTo = getProvaVisibility(prova);
     const provaMgmt = el("div","card");
     provaMgmt.style.marginBottom = "16px";
 
-    const head = el("div","", "");
-    head.innerHTML = `<h3 style="font-size:15px;font-weight:700;margin-bottom:3px;">${prova.icon} ${prova.title}</h3>`;
+    const head = el("div","");
+    head.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:10px;";
+    const headTitle = el("h3","", `${prova.icon} ${getProvaTitle(prova)}`);
+    headTitle.style.cssText = "font-size:15px;font-weight:700;margin-bottom:3px;";
+    head.appendChild(headTitle);
+    const renameBtn = el("button","btn-ghost sm", "✏️");
+    renameBtn.style.cssText = "flex-shrink:0;";
+    renameBtn.onclick = async ()=>{
+      const input = prompt("Nuovo nome per questa prova:", getProvaTitle(prova));
+      if(input===null) return;
+      const trimmed = input.trim();
+      if(!trimmed){ showToast("Il nome non può essere vuoto"); return; }
+      showToast("Aggiorno...");
+      const res = await publishProvaTitle(prova.id, trimmed);
+      showToast(res.shared ? "Rinominata ✓" : "Rinominata solo su questo dispositivo");
+      if(!res.shared) render();
+    };
+    head.appendChild(renameBtn);
     provaMgmt.appendChild(head);
 
     const statusLine = el("p","", visibleTo.length ? `Visibile a: ${visibleTo.join(", ")}` : "Nascosta a tutte le classi");
