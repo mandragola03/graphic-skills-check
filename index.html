@@ -91,6 +91,28 @@ button:active{transform:scale(0.98);}
 .role-card .txt h3{font-size:16.5px;margin-bottom:5px;font-weight:600;letter-spacing:-0.005em;}
 .role-card .txt p{font-size:13.5px;line-height:1.5;}
 
+/* ---- card di navigazione nel profilo studente (Prove / Dispense) ---- */
+.profile-nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px;}
+.profile-nav-card{
+  position:relative;background:var(--surface-2);border:1px solid var(--line);border-radius:18px;
+  padding:18px 16px;text-align:left;display:flex;flex-direction:column;gap:14px;
+  transition:transform .15s cubic-bezier(.2,.8,.2,1), border-color .15s ease, background .15s ease;
+}
+.profile-nav-card:hover{border-color:var(--teal);background:#242838;transform:translateY(-1px);}
+.profile-nav-card .nav-top{display:flex;align-items:center;justify-content:space-between;}
+.profile-nav-card .nav-icon{
+  width:40px;height:40px;border-radius:12px;background:var(--grad-swag);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;
+  box-shadow:0 3px 10px rgba(255,107,74,.25);
+}
+.profile-nav-card .nav-chev{font-size:18px;color:var(--text-dim);font-weight:700;}
+.profile-nav-card h3{font-size:14.5px;font-weight:700;letter-spacing:-0.005em;}
+.profile-nav-card p{font-size:11.5px;color:var(--text-dim);margin-top:3px;line-height:1.4;}
+.nav-dot{
+  position:absolute;top:14px;right:14px;width:10px;height:10px;border-radius:50%;
+  background:var(--red);box-shadow:0 0 0 3px var(--surface-2);
+}
+
 /* ---- swag mood (home) ---- */
 :root{--font-apple:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",var(--font-body);}
 
@@ -1211,7 +1233,7 @@ function buildProvaReviewBlock(p, opts){
 /* ---------------- STATE ---------------- */
 
 let state = {
-  screen:"home", // home | student-auth | student-profile | student-round | student-result | teacher-pin | teacher-hub | teacher-prove | teacher-classi | teacher-classe-detail | teacher-studenti | teacher-importa | teacher-backup | teacher-detail
+  screen:"home", // home | student-auth | student-profile | student-round | student-result | teacher-pin | teacher-hub | teacher-prove | teacher-classi | teacher-classe-detail | teacher-studenti | teacher-backup | teacher-detail
   roundIndex:0,
   answers:{}, // per round key -> data
   student:{nome:"", cognome:"", classe:""},
@@ -1253,7 +1275,6 @@ function render(){
   if(state.screen==="teacher-dispense") return renderTeacherDispense();
   if(state.screen==="teacher-classe-detail") return renderTeacherClasseDetail();
   if(state.screen==="teacher-studenti") return renderTeacherStudenti();
-  if(state.screen==="teacher-importa") return renderTeacherImporta();
   if(state.screen==="teacher-backup") return renderTeacherBackup();
   if(state.screen==="teacher-detail") return renderTeacherDetail();
 }
@@ -1638,7 +1659,7 @@ function renderStudentAuth(){
   };
   card.appendChild(btn);
 
-  const note = el("p","", "Il profilo resta salvato solo su questo Mac. Se ti sposti su un altro computer dovrai ricrearlo — il tuo insegnante ha comunque una copia dei tuoi risultati tramite i codici che gli invii.");
+  const note = el("p","", "Il tuo profilo è salvato online: puoi accedere da qualsiasi computer o telefono con lo stesso username e password.");
   note.style.cssText="font-size:12px;margin-top:16px;line-height:1.55;";
   card.appendChild(note);
 
@@ -1686,27 +1707,46 @@ function renderStudentProfile(){
   const startedProve = acc.startedProve || {};
   const resumeAllowed = acc.resumeAllowed || {};
   const inProgressMap = acc.inProgress || {};
+  const seenProve = acc.seenProve || {};
   const visibleProve = PROVE.filter(p=>isProvaVisibleForClasse(p, acc.classe));
-  const todoCount = visibleProve.filter(p=>{
+  const todoProveIds = visibleProve.filter(p=>{
     if(acc.prove.find(x=>x.provaId===p.id)) return false; // già completata
     const canResume = !!resumeAllowed[p.id] && !!inProgressMap[p.id];
     const isAbandoned = !!startedProve[p.id] && !canResume;
     return !isAbandoned; // "da fare" o "riprendibile" contano, "bloccata" no
-  }).length;
+  }).map(p=>p.id);
+  const todoCount = todoProveIds.length;
+  const hasNewProva = todoProveIds.some(id=>!seenProve[id]);
   const classDispense = getDispenseForClasse(acc.classe);
 
-  const navRow = el("div","");
-  navRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;";
+  const navRow = el("div","profile-nav-grid");
 
-  const provNav = el("button","role-card");
-  provNav.style.cssText = "text-align:left;padding:18px;";
-  provNav.innerHTML = `<div class="icon" style="width:38px;height:38px;font-size:17px;">📋</div><div class="txt"><h3 style="font-size:14.5px;">Prove</h3><p style="font-size:12px;">${todoCount} da fare · ${acc.prove.length} completate</p></div>`;
-  provNav.onclick = ()=>{ state.screen="student-prove-list"; render(); };
+  const provNav = el("button","profile-nav-card");
+  provNav.innerHTML = `
+    ${hasNewProva ? '<div class="nav-dot"></div>' : ''}
+    <div class="nav-top"><div class="nav-icon">📋</div><span class="nav-chev">›</span></div>
+    <div><h3>Prove</h3><p>${todoCount} da fare · ${acc.prove.length} completate</p></div>
+  `;
+  provNav.onclick = ()=>{
+    // segna come "viste" tutte le prove da fare al momento dell'ingresso, così il pallino sparisce
+    if(todoProveIds.length){
+      const accounts = getAccounts();
+      const accRef = accounts[state.username];
+      if(accRef){
+        if(!accRef.seenProve) accRef.seenProve = {};
+        todoProveIds.forEach(id=>{ accRef.seenProve[id] = true; });
+        saveAccounts(accounts);
+      }
+    }
+    state.screen="student-prove-list"; render();
+  };
   navRow.appendChild(provNav);
 
-  const dispNav = el("button","role-card");
-  dispNav.style.cssText = "text-align:left;padding:18px;";
-  dispNav.innerHTML = `<div class="icon" style="width:38px;height:38px;font-size:17px;">📚</div><div class="txt"><h3 style="font-size:14.5px;">Dispense</h3><p style="font-size:12px;">${classDispense.length} disponibili</p></div>`;
+  const dispNav = el("button","profile-nav-card");
+  dispNav.innerHTML = `
+    <div class="nav-top"><div class="nav-icon">📚</div><span class="nav-chev">›</span></div>
+    <div><h3>Dispense</h3><p>${classDispense.length} disponibili</p></div>
+  `;
   dispNav.onclick = ()=>{ state.screen="student-dispense-list"; render(); };
   navRow.appendChild(dispNav);
 
@@ -2350,71 +2390,12 @@ function renderStudentResult(){
   const levelTag = el("div","level-tag", `Voto: ${voto} · Livello: ${level}`);
   receipt.appendChild(levelTag);
 
-  const savedTag = el("div","saved-tag", "✓ Salvato nel tuo profilo");
+  const savedTag = el("div","saved-tag", "✓ Salvato — il tuo insegnante lo vede già, non devi inviare nulla");
   receipt.appendChild(savedTag);
 
-  const note = el("p","", "Il voto sul tuo profilo è la media di tutte le prove che hai completato, non solo di questa. Ora manda il codice al tuo insegnante, così ha una copia anche lui.");
+  const note = el("p","", "Il voto sul tuo profilo è la media di tutte le prove che hai completato, non solo di questa.");
   note.style.cssText="font-size:12px;margin-top:14px;";
   receipt.appendChild(note);
-
-  // code box
-  const payload = {
-    v:1, u:state.username,
-    n:state.student.nome.trim(), c:state.student.cognome.trim(), cl:state.student.classe,
-    provaId:prova.provaId, provaTitle:prova.provaTitle,
-    gross:prova.gross, ts:prova.ts,
-    rounds: prova.rounds, idea: prova.idea
-  };
-  const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  const shareText = `SkillFlex — ${state.student.nome} ${state.student.cognome} (${state.student.classe})\nCodice risultato:\n${code}`;
-
-  const codeBox = el("div","code-box");
-  const codeLabel = el("div","", "Il tuo codice:");
-  codeLabel.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:600;";
-  codeBox.appendChild(codeLabel);
-  const ta = document.createElement("textarea"); ta.readOnly=true; ta.value=code;
-  codeBox.appendChild(ta);
-
-  const sendBtn = el("button","btn-primary", "Invia al docente →");
-  sendBtn.style.marginTop="12px";
-  sendBtn.onclick = async ()=>{
-    let shared = false;
-    if(navigator.share){
-      try{
-        await navigator.share({title:"SkillFlex", text:shareText});
-        shared = true;
-        showToast("Inviato ✓");
-      }catch(e){ shared = false; } // condivisione annullata o non disponibile qui: passiamo alla copia
-    }
-    if(!shared) await copyCodeToClipboard();
-    sendBtn.disabled = true;
-    sendBtn.textContent = "✓ Inviato";
-  };
-  codeBox.appendChild(sendBtn);
-
-  const copyBtn = el("button","btn-secondary", "Copia solo il codice");
-  copyBtn.style.marginTop="8px";
-  copyBtn.onclick = ()=>copyCodeToClipboard();
-  codeBox.appendChild(copyBtn);
-  receipt.appendChild(codeBox);
-
-  async function copyCodeToClipboard(){
-    try{
-      await navigator.clipboard.writeText(code);
-      showToast("Codice copiato — incollalo dove preferisci ✓");
-      return;
-    }catch(e){ /* niente Clipboard API qui, proviamo il metodo classico */ }
-    try{
-      ta.focus(); ta.select();
-      const ok = document.execCommand("copy");
-      if(ok){ showToast("Codice copiato ✓"); return; }
-    }catch(e){ /* anche questo metodo può essere bloccato dal browser */ }
-    ta.focus(); ta.select();
-    showToast("Il codice è selezionato qui sotto — premi Ctrl+C (o Cmd+C) per copiarlo");
-  }
-
-  const hint = el("p","code-hint", "\"Invia\" apre WhatsApp, Messaggi o Mail sul telefono. Su computer copia il codice: incollalo dove preferisci mandarlo al tuo insegnante.");
-  receipt.appendChild(hint);
 
   screen.appendChild(receipt);
 
@@ -2469,33 +2450,6 @@ function renderTeacherPin(){
   wrap.appendChild(back);
 
   $app.appendChild(wrap);
-}
-
-function importCodes(text){
-  const db = getDB();
-  const lines = text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
-  let imported=0, failed=0;
-  lines.forEach(code=>{
-    try{
-      const payload = JSON.parse(decodeURIComponent(escape(atob(code))));
-      if(!payload.n || !payload.cl) throw new Error("bad payload");
-      const key = payload.u ? ("u_"+payload.u) : studentKey(payload.n, payload.c, payload.cl);
-      if(!db.students[key]) db.students[key] = {nome:payload.n, cognome:payload.c, classe:payload.cl, username:payload.u||null, credito:0, prove:[]};
-      const s = db.students[key];
-      const totale = payload.gross + s.credito;
-      const {voto, credito:nuovoCredito} = votoFromTotale(totale);
-      s.prove.push({
-        ts:payload.ts, provaId:payload.provaId||null, provaTitle:payload.provaTitle||"Prova",
-        gross:payload.gross, creditoPrima:s.credito, totale, voto,
-        rounds:payload.rounds, idea:payload.idea
-      });
-      s.credito = nuovoCredito;
-      s.voto = computeAvgVoto(s.prove);
-      imported++;
-    }catch(e){ failed++; }
-  });
-  saveDB(db);
-  return {imported, failed};
 }
 
 function renderTeacherHub(){
@@ -2880,43 +2834,6 @@ function renderTeacherProve(){
   noteP.style.cssText="font-size:12px;line-height:1.55;";
   note.appendChild(noteP);
   screen.appendChild(note);
-  screen.appendChild(hubBackButton());
-  $app.appendChild(screen);
-}
-
-function renderTeacherImporta(){
-  $app.appendChild(topbar());
-  const screen = el("div","screen");
-  screen.appendChild(sectionTitle("📥","Importa codici"));
-
-  const card = el("div","card");
-  const p = el("p","", "Incolla uno o più codici ricevuti dagli studenti (uno per riga).");
-  p.style.marginBottom="14px";
-  card.appendChild(p);
-
-  const importBox = el("div","import-box");
-  const ta = document.createElement("textarea");
-  ta.placeholder = "Incolla qui i codici...";
-  importBox.appendChild(ta);
-  card.appendChild(importBox);
-
-  const importBtn = el("button","btn-primary", "Importa e calcola voti");
-  importBtn.style.marginTop="10px";
-  importBtn.onclick = ()=>{
-    if(!ta.value.trim()) return;
-    const res = importCodes(ta.value);
-    ta.value="";
-    showToast(`Importati ${res.imported} · falliti ${res.failed}`);
-    render();
-  };
-  card.appendChild(importBtn);
-  screen.appendChild(card);
-
-  const goClassi = el("button","btn-secondary", "Vai alle Classi per vedere i risultati →");
-  goClassi.style.marginTop="14px";
-  goClassi.onclick = ()=>{ state.screen="teacher-classi"; render(); };
-  screen.appendChild(goClassi);
-
   screen.appendChild(hubBackButton());
   $app.appendChild(screen);
 }
