@@ -840,10 +840,112 @@ const ROUND_APERTE_BASI = {
 };
 const ROUNDS_BASI_GRAFICA = [ROUND_QUIZ_BASI, ROUND_RICERCA_BASI, ROUND_APERTE_BASI];
 
+/* ---- prova "Un logo che sei tu": progetto individuale, 4 round in ordine ---- */
+const ROUND_LOGO_CHISEI = {
+  key:"logo-chi-sei", title:"Chi sei", rk:"Round 1",
+  sub:"Una breve presentazione di te.",
+  type:"aperte",
+  questions:[
+    {id:"l1", q:"Racconta chi sei: cosa ti piace fare, come ti descriveresti in poche parole."}
+  ]
+};
+const ROUND_LOGO_PENSIERO = {
+  key:"logo-pensiero", title:"Il pensiero progettuale", rk:"Round 2",
+  sub:"La parte più importante: spiega le tue scelte prima ancora di disegnare.",
+  type:"aperte",
+  questions:[
+    {id:"l2", q:"\"Per il mio logo personale ho pensato che...\" — completa e spiega cosa volevi rappresentare, e perché hai scelto quella forma, quel simbolo o quei colori."}
+  ]
+};
+const ROUND_LOGO_DISEGNO = {
+  key:"logo-disegno", title:"Il disegno", rk:"Round 3",
+  sub:"Disegna il logo a mano, su carta, poi carica una foto.",
+  type:"ricerca",
+  tasks:[
+    {id:"ld1", prompt:"Disegna il tuo logo personale su carta — matita, penna, pennarello, quello che preferisci. Poi fai una foto e caricala qui. Non deve essere perfetto: deve essere pensato."}
+  ]
+};
+const ROUND_LOGO_CONCLUSIONE = {
+  key:"logo-conclusione", title:"Conclusione", rk:"Round 4",
+  sub:"Rileggi il tuo lavoro con occhio critico.",
+  type:"aperte",
+  questions:[
+    {id:"l4", q:"Sei soddisfatto del tuo logo? Cosa cambieresti se lo rifacessi al computer, con Illustrator, invece che a mano?"}
+  ]
+};
+// (ROUNDS_LOGO_PERSONALE viene dichiarato più sotto, dopo aver definito anche i round 5-6-7)
+
+/* ---- prova "Sai le basi?": quiz + vero/falso + sfida flash, sui contenuti
+   della lezione "Introduzione alla grafica" (storia, Adobe, Apple) ---- */
+const ROUND_10DOMANDE = {
+  key:"basi2-quiz", title:"10 domande", rk:"Round 1",
+  sub:"Le basi pratiche della grafica: colori e programmi giusti al momento giusto. Ordine e risposte mischiati a ogni tentativo.",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"Per un lavoro destinato alla stampa (es. una locandina), quale modalità colore è corretto usare?", opts:[
+      "RGB","CMYK","Scala di grigi sempre","HSB"], correct:1},
+    {q:"Per un'immagine destinata a uno schermo (sito, social, app), quale modalità colore si usa?", opts:[
+      "CMYK","Pantone","RGB","Scala di grigi"], correct:2},
+    {q:"Cosa significa l'acronimo CMYK, i colori base della stampa?", opts:[
+      "Color, Magenta, Yellow, Kelvin","Cyan, Magenta, Yellow, Key (nero)","Contrast, Mode, Yield, Kontrast","Custom, Multi, Your, Kit"], correct:1},
+    {q:"Perché RGB e CMYK possono dare colori leggermente diversi sullo stesso lavoro?", opts:[
+      "RGB usa la luce dello schermo, CMYK usa l'inchiostro sulla carta","Sono in realtà identici, cambia solo il nome","CMYK funziona solo in bianco e nero","RGB si usa solo per i loghi"], correct:0},
+    {q:"Devi ritoccare una foto: correggere colori, togliere un difetto. Quale programma useresti?", opts:[
+      "Illustrator","Premiere","Photoshop","InDesign"], correct:2},
+    {q:"Devi disegnare un logo che deve restare nitido a qualsiasi dimensione. Quale programma useresti?", opts:[
+      "Photoshop","Illustrator","Lightroom","Premiere"], correct:1},
+    {q:"Devi impaginare un giornalino scolastico di 12 pagine. Quale programma useresti?", opts:[
+      "Lightroom","Premiere","Photoshop","InDesign"], correct:3},
+    {q:"Devi selezionare e correggere insieme le 300 foto scattate in gita. Quale programma useresti?", opts:[
+      "Lightroom","Illustrator","InDesign","Premiere"], correct:0},
+    {q:"Devi montare il video del saggio di fine anno, con musica e sottotitoli. Quale programma useresti?", opts:[
+      "InDesign","Photoshop","Lightroom","Premiere"], correct:3},
+    {q:"Un'immagine pensata per il web, se stampata così com'è senza modifiche, rischia di...", opts:[
+      "Avere colori diversi da quelli visti a schermo","Diventare automaticamente in bianco e nero","Non aprirsi affatto","Diventare vettoriale"], correct:0}
+  ]
+};
+const ROUND_10VF = {
+  key:"basi2-vf", title:"Vero o falso", rk:"Round 2",
+  sub:"10 affermazioni sulla lezione: vero o falso?",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"La grafica serve solo a rendere le cose esteticamente belle.", opts:["Vero","Falso"], correct:1},
+    {q:"Gutenberg inventò la stampa a caratteri mobili nel 1450.", opts:["Vero","Falso"], correct:0},
+    {q:"Il Bauhaus è nato in Italia.", opts:["Vero","Falso"], correct:1},
+    {q:"Il Macintosh fu il primo computer Apple con schermo grafico e mouse.", opts:["Vero","Falso"], correct:0},
+    {q:"Negli anni '90, Photoshop e Illustrator diventano lo standard del settore.", opts:["Vero","Falso"], correct:0},
+    {q:"Adobe Creative Cloud è un singolo programma, non un abbonamento.", opts:["Vero","Falso"], correct:1},
+    {q:"Illustrator lavora con immagini raster, fatte di pixel.", opts:["Vero","Falso"], correct:1},
+    {q:"InDesign serve per impaginare documenti con molte pagine.", opts:["Vero","Falso"], correct:0},
+    {q:"Steve Jobs fondò Apple da solo, senza soci.", opts:["Vero","Falso"], correct:1},
+    {q:"Il primissimo logo Apple, nel 1976, era già la mela morsicata arcobaleno.", opts:["Vero","Falso"], correct:1}
+  ]
+};
+const ROUND_SFIDAFLASH = {
+  key:"basi2-sfida", title:"🎮 Sfida flash", rk:"Round 3",
+  sub:"Ultimo giro: abbina al volo, senza pensarci troppo.",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"⚡ A quale anno corrisponde l'invenzione della stampa a caratteri mobili?", opts:["1450","1919","1984","1977"], correct:0},
+    {q:"⚡ A quale anno corrisponde la nascita del Bauhaus?", opts:["1450","1919","1984","1998"], correct:1},
+    {q:"⚡ A quale anno corrisponde il Macintosh, e il debutto del mouse?", opts:["1919","1976","1984","1977"], correct:2},
+    {q:"⚡ A quale anno corrisponde la mela morsicata arcobaleno di Rob Janoff?", opts:["1976","1977","1998","1984"], correct:1},
+    {q:"⚡ A quale anno corrisponde il logo Apple monocromo di oggi?", opts:["1977","1984","1998","1919"], correct:2},
+    {q:"⚡ Illustrator è a...", opts:["Vettori","Pixel","Video","Pagine"], correct:0},
+    {q:"⚡ Photoshop è a...", opts:["Vettori","Pixel","Video","Pagine"], correct:1},
+    {q:"⚡ Premiere è a...", opts:["Vettori","Pixel","Video","Pagine"], correct:2}
+  ]
+};
+const ROUNDS_LOGO_PERSONALE = [ROUND_LOGO_CHISEI, ROUND_LOGO_PENSIERO, ROUND_LOGO_DISEGNO, ROUND_LOGO_CONCLUSIONE];
+const ROUNDS_BASI2 = [ROUND_10DOMANDE, ROUND_10VF, ROUND_SFIDAFLASH];
+
 /* Registro di TUTTI i round mai creati (di ogni prova), usato per ritrovare
    titolo/testo quando si legge lo storico di una prova passata. */
 const ROUND_REGISTRY = {};
-[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO, ...ROUNDS_BASI_GRAFICA].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
+[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO, ...ROUNDS_BASI_GRAFICA, ...ROUNDS_LOGO_PERSONALE, ...ROUNDS_BASI2].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
 
 /* Le prove disponibili. Ognuna ha una lista di classi a cui è visibile
    (visibleTo) — il docente la cambia dalla sua dashboard, salvata su
@@ -882,6 +984,22 @@ const PROVE = [
     desc:"Quiz, caccia alla grafica e domande aperte sulla lezione introduttiva — 3 round, circa 20 minuti.",
     visibleTo:["1ª Grafica"],
     rounds: ROUNDS_BASI_GRAFICA
+  },
+  {
+    id:"logo-personale-01",
+    icon:"✒️",
+    title:"Cose da fare: Un logo che sei tu",
+    desc:"Progetto individuale: racconti chi sei, spieghi il tuo pensiero progettuale, disegni il tuo logo e concludi — 4 round.",
+    visibleTo:["1ª Grafica","2ª Grafica"],
+    rounds: ROUNDS_LOGO_PERSONALE
+  },
+  {
+    id:"basi-grafica-02",
+    icon:"🎮",
+    title:"Cose da fare: Sai le basi?",
+    desc:"10 domande pratiche (CMYK/RGB, quale programma usare), 10 vero/falso e una sfida flash — 3 round, circa 15 minuti.",
+    visibleTo:["1ª Grafica"],
+    rounds: ROUNDS_BASI2
   }
 ];
 
@@ -1167,16 +1285,23 @@ function buildProvaReviewBlock(p, opts){
         box.appendChild(qList);
       }
 
-      // correzione round "aperte": domanda + risposta scritta dallo studente
-      if(rr.texts && roundDef && roundDef.questions){
+      // correzione round "aperte": domanda + risposta scritta e/o foto allegata dallo studente
+      if((rr.texts || rr.photos) && roundDef && roundDef.questions){
         const aList = el("div","");
         roundDef.questions.forEach(q=>{
-          const txt = rr.texts[q.id];
-          if(txt===undefined) return;
+          const txt = rr.texts ? rr.texts[q.id] : undefined;
+          const photo = rr.photos ? rr.photos[q.id] : undefined;
+          if(txt===undefined && photo===undefined) return;
           const qBox = el("div","review-q");
           qBox.appendChild(el("div","review-q-text", q.q));
-          const ansDiv = el("div","review-opt", txt || "(nessuna risposta)");
-          qBox.appendChild(ansDiv);
+          if(txt) qBox.appendChild(el("div","review-opt", txt));
+          if(photo){
+            const img = document.createElement("img");
+            img.src = photo; img.className = "ricerca-thumb"; img.style.maxHeight = "180px"; img.style.cursor = "pointer";
+            img.onclick = ()=>window.open(photo, "_blank");
+            qBox.appendChild(img);
+          }
+          if(!txt && !photo) qBox.appendChild(el("div","review-opt", "(nessuna risposta)"));
           aList.appendChild(qBox);
         });
         box.appendChild(aList);
@@ -2161,12 +2286,16 @@ function renderAperteRound(round){
   const card = el("div","card");
   card.appendChild(roundHeader(round));
 
-  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length, texts:{}};
-  const texts = state.answers[round.key].texts;
+  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length, texts:{}, photos:{}};
+  const answerState = state.answers[round.key];
+  if(!answerState.photos) answerState.photos = {}; // compatibilità con round "aperte" salvati prima di questo aggiornamento
+  const texts = answerState.texts;
+  const photos = answerState.photos;
 
   round.questions.forEach((q, idx)=>{
     const box = el("div","ricerca-task");
     box.innerHTML = `<div class="ricerca-num">${idx+1}</div><p>${q.q}</p>`;
+
     const ta = document.createElement("textarea");
     ta.rows = 3;
     ta.placeholder = "Scrivi qui la tua risposta...";
@@ -2178,14 +2307,51 @@ function renderAperteRound(round){
       updateContBtn();
     };
     box.appendChild(ta);
+
+    // "+" per allegare una foto in alternativa (o in aggiunta) al testo scritto
+    const photoWrap = el("div","");
+    photoWrap.style.cssText = "margin-left:32px; margin-top:10px;";
+    if(photos[q.id]){
+      const img = document.createElement("img");
+      img.src = photos[q.id];
+      img.className = "ricerca-thumb";
+      img.style.maxHeight = "160px";
+      photoWrap.appendChild(img);
+      const removeBtn = el("button","btn-ghost sm", "Rimuovi foto");
+      removeBtn.onclick = ()=>{ delete photos[q.id]; syncAperteCount(round); updateContBtn(); render(); };
+      photoWrap.appendChild(removeBtn);
+    } else {
+      const addBtn = el("button","btn-secondary sm", "＋ Allega una foto");
+      addBtn.onclick = ()=>triggerAperteUpload(q.id);
+      photoWrap.appendChild(addBtn);
+    }
+    box.appendChild(photoWrap);
+
     card.appendChild(box);
   });
+
+  function triggerAperteUpload(qid){
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*"; input.style.display="none";
+    input.onchange = async ()=>{
+      if(!input.files || !input.files[0]) return;
+      try{
+        const dataUrl = await resizeImageFile(input.files[0], 480, 0.55);
+        photos[qid] = dataUrl;
+        syncAperteCount(round);
+        render();
+      }catch(e){ showToast("Non sono riuscito a caricare questa foto, riprova"); }
+    };
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(()=>document.body.removeChild(input), 3000);
+  }
 
   const contBtn = el("button","btn-primary","");
   contBtn.style.marginTop = "18px";
   contBtn.onclick = ()=>{ if(!contBtn.disabled) nextRoundOrFinish(); };
   function updateContBtn(){
-    const doneCount = round.questions.filter(q=>(texts[q.id]||"").trim().length>0).length;
+    const doneCount = round.questions.filter(q=>(texts[q.id]||"").trim().length>0 || photos[q.id]).length;
     contBtn.textContent = doneCount===round.questions.length ? "Conferma e continua →" : `Rispondi a tutte per continuare (${doneCount}/${round.questions.length})`;
     contBtn.disabled = doneCount < round.questions.length;
   }
@@ -2196,10 +2362,12 @@ function renderAperteRound(round){
   $app.appendChild(screen);
 }
 function syncAperteCount(round){
-  const texts = state.answers[round.key].texts;
-  const correct = round.questions.filter(q=>(texts[q.id]||"").trim().length>0).length;
-  state.answers[round.key].correct = correct;
-  state.answers[round.key].total = round.questions.length;
+  const answerState = state.answers[round.key];
+  const texts = answerState.texts;
+  const photos = answerState.photos || {};
+  const correct = round.questions.filter(q=>(texts[q.id]||"").trim().length>0 || photos[q.id]).length;
+  answerState.correct = correct;
+  answerState.total = round.questions.length;
 }
 
 /* --- multi (detective) round --- */
