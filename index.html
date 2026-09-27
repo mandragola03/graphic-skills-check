@@ -942,10 +942,161 @@ const ROUND_SFIDAFLASH = {
 const ROUNDS_LOGO_PERSONALE = [ROUND_LOGO_CHISEI, ROUND_LOGO_PENSIERO, ROUND_LOGO_DISEGNO, ROUND_LOGO_CONCLUSIONE];
 const ROUNDS_BASI2 = [ROUND_10DOMANDE, ROUND_10VF, ROUND_SFIDAFLASH];
 
+/* ---- prova "Il preventivo": 15 domande + 15 vero/falso + sfida flash sui calcoli ---- */
+const ROUND_PREVENTIVO_QUIZ = {
+  key:"prev-quiz", title:"15 domande", rk:"Round 1",
+  sub:"Quanto hai capito della lezione sul preventivo? Ordine e risposte mischiati a ogni tentativo.",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"Cosa \"vende\" davvero un preventivo, oltre a proteggerti?", opts:[
+      "Impone un unico prezzo fisso al cliente","Serve solo a evitare le tasse","Ti fa scegliere tra livelli diversi, non tra sì e no","Serve solo per lavori sopra i 1000€"], correct:2},
+    {q:"Perché il \"prezzo a voce\" è un problema?", opts:[
+      "Il cliente ricorda solo quello che gli conviene, senza nulla di scritto","È illegale in Italia","Costa sempre di più del prezzo scritto","Va bene solo tra amici"], correct:0},
+    {q:"Come si costruisce il prezzo secondo la formula della lezione?", opts:[
+      "Un numero deciso a sentimento","Ore × Tariffa + Costi vivi + IVA","Ore + Tariffa × Costi vivi","Il prezzo del cliente precedente"], correct:1},
+    {q:"Cosa sono i \"costi vivi\" in un preventivo?", opts:[
+      "Font, foto stock, noleggi, hosting","Le tasse sul reddito","Il valore della tua ora di lavoro","Il tempo che ci metti a lavorare"], correct:0},
+    {q:"Quante sono le parti di un buon preventivo secondo la lezione?", opts:[
+      "Quattro","Sei","Cinque","Otto"], correct:1},
+    {q:"Quale, tra queste, NON è una delle 6 parti di un buon preventivo?", opts:[
+      "Cosa ho capito del cliente","Le fasi del lavoro","Condizioni e diritti","Il numero di follower del cliente"], correct:3},
+    {q:"Perché si offrono 3 pacchetti invece di un prezzo unico?", opts:[
+      "Perché la legge lo richiede","Il cliente decide QUALE livello, non SE comprare","Per confondere il cliente","Perché costa meno da preparare"], correct:1},
+    {q:"Qual è la \"regola d'oro\" sugli extra da proporre?", opts:[
+      "Vendi solo ciò che serve davvero","Vendi sempre tutti gli extra possibili","Gli extra sono sempre gratuiti","Gli extra si aggiungono solo dopo la consegna"], correct:0},
+    {q:"Quanto si versa in genere come acconto, secondo la lezione?", opts:[
+      "Il 100% subito","Tra il 30 e il 50%","Il 5%","Niente, si paga tutto alla fine"], correct:1},
+    {q:"Cosa succede se il cliente conferma entro una data limite (scadenza)?", opts:[
+      "Ottiene uno sconto","Paga di più","Perde la priorità","Non cambia nulla"], correct:0},
+    {q:"Con quale programma si costruisce il preventivo, secondo la consegna?", opts:[
+      "Word","Instagram","Excel","Keynote"], correct:3},
+    {q:"In quanti si lavora al progetto del preventivo?", opts:[
+      "Da soli","In coppia","In gruppi da 3-4 persone","Tutta la classe insieme"], correct:2},
+    {q:"Quante regole di grafica vengono date per le slide del preventivo?", opts:[
+      "Sei","Due","Quattro","Tre"], correct:2},
+    {q:"Perché conviene indicare chiaramente \"cosa non è incluso\" in un preventivo?", opts:[
+      "Per allungare il documento","Per alzare il prezzo di nascosto","Per evitare equivoci su cosa riceverà davvero il cliente","Perché lo richiede la legge"], correct:2},
+    {q:"Cosa NON è incluso di default in un preventivo, secondo la lezione?", opts:[
+      "Le revisioni oltre quelle previste","Il prezzo totale","Le fasi del lavoro","La data di consegna"], correct:0}
+  ]
+};
+const ROUND_PREVENTIVO_VF = {
+  key:"prev-vf", title:"15 vero o falso", rk:"Round 2",
+  sub:"15 affermazioni sulla lezione: vero o falso?",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"Un preventivo si scrive prima di iniziare il lavoro.", opts:["Vero","Falso"], correct:0},
+    {q:"\"Fare un prezzo a sentimento\" è il modo consigliato per stabilire una cifra.", opts:["Vero","Falso"], correct:1},
+    {q:"Il preventivo serve solo al cliente, non a te.", opts:["Vero","Falso"], correct:1},
+    {q:"La formula del prezzo è: Ore × Tariffa + Costi vivi + IVA.", opts:["Vero","Falso"], correct:0},
+    {q:"Nell'esempio della lezione, l'IVA applicata è del 22%.", opts:["Vero","Falso"], correct:0},
+    {q:"Un buon preventivo protegge chi lavora ma non aiuta a vendere.", opts:["Vero","Falso"], correct:1},
+    {q:"Il pacchetto \"Consigliato\" nell'esempio costa 900€.", opts:["Vero","Falso"], correct:0},
+    {q:"Il pacchetto più economico si chiama \"Completo\".", opts:["Vero","Falso"], correct:1},
+    {q:"La regola d'oro dice di vendere sempre tutti gli extra possibili, anche se non servono.", opts:["Vero","Falso"], correct:1},
+    {q:"L'acconto si versa di solito tra il 30 e il 50%, alla firma.", opts:["Vero","Falso"], correct:0},
+    {q:"Le revisioni extra oltre quelle previste sono sempre gratuite.", opts:["Vero","Falso"], correct:1},
+    {q:"Il preventivo va costruito in gruppi da 3-4 persone, scegliendo un cliente tra 5.", opts:["Vero","Falso"], correct:0},
+    {q:"Le regole di grafica dicono di usare più font possibile, per variare lo stile.", opts:["Vero","Falso"], correct:1},
+    {q:"Un preventivo ben fatto fa anche sembrare più professionale chi lo scrive.", opts:["Vero","Falso"], correct:0},
+    {q:"Secondo la chiusura della lezione, il preventivo è \"il primo pezzo di design che consegni\".", opts:["Vero","Falso"], correct:0}
+  ]
+};
+const ROUND_PREVENTIVO_GIOCO = {
+  key:"prev-sfida", title:"🎮 Sfida flash: abbina al volo", rk:"Round 3",
+  sub:"Ultimo giro: abbina al volo, senza pensarci troppo.",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"⚡ Quale pacchetto include SOLO 1 proposta e 1 revisione?", opts:["Consigliato","Essenziale","Completo","Nessuno dei tre"], correct:1},
+    {q:"⚡ Quale pacchetto include 5 proposte e la guida completa?", opts:["Consigliato","Essenziale","Completo","Tutti e tre"], correct:2},
+    {q:"⚡ \"Le fasi del lavoro, una per una\" è quale parte del preventivo?", opts:["Cosa farò","Il prezzo","Condizioni","Tempi"], correct:0},
+    {q:"⚡ \"Riassumi il progetto del cliente\" è quale parte del preventivo?", opts:["Tempi","Cosa ho capito","Il prezzo","Cosa non è incluso"], correct:1},
+    {q:"⚡ Quale extra risolve \"una foto sola non basta per due mesi di social\"?", opts:["Manutenzione","Brand guidelines","Foto di backup","Versione verticale"], correct:2},
+    {q:"⚡ Quale extra risolve \"il sito si rompe il giorno del lancio\"?", opts:["Foto di backup","Versione verticale","Brand guidelines","Manutenzione"], correct:3},
+    {q:"⚡ Quale extra risolve \"ogni post usa il logo in modo diverso\"?", opts:["Brand guidelines","Manutenzione","Versione verticale","Foto di backup"], correct:0},
+    {q:"⚡ Secondo le 5 regole d'oro, cosa non va MAI fatto?", opts:["Scrivere sempre il prezzo","Vendere il valore prima del prezzo","Dire il prezzo a voce","Offrire più livelli"], correct:2}
+  ]
+};
+const ROUNDS_PREVENTIVO = [ROUND_PREVENTIVO_QUIZ, ROUND_PREVENTIVO_VF, ROUND_PREVENTIVO_GIOCO];
+
+/* ---- prova "Le parole della grafica": 12 domande + 12 vero/falso + sfida flash di abbinamento ---- */
+const ROUND_PAROLE_QUIZ = {
+  key:"parole-quiz", title:"12 domande", rk:"Round 1",
+  sub:"Vocabolario ed Illustrator: quanto hai capito? Ordine e risposte mischiati a ogni tentativo.",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"Cosa distingue un'immagine vettoriale da una raster?", opts:[
+      "Il vettoriale è fatto di forme, il raster di pixel","Il raster è fatto di forme, il vettoriale di pixel","Sono lo stesso tipo di immagine","Il vettoriale si vede solo in bianco e nero"], correct:0},
+    {q:"Cosa succede se ingrandisci troppo un'immagine raster?", opts:[
+      "Diventa vettoriale","Si vedono i pixel, diventa sgranata","Cambia colore da sola","Diventa più nitida"], correct:1},
+    {q:"In cosa si misura la risoluzione di un'immagine?", opts:[
+      "Litri","Chilogrammi","Dpi","Decibel"], correct:2},
+    {q:"Quanti dpi servono di solito per una buona stampa?", opts:[
+      "72","150","1000","300"], correct:3},
+    {q:"RGB si usa soprattutto per...", opts:[
+      "Lo schermo","La stampa su carta","I libri stampati","Le fotocopie"], correct:0},
+    {q:"CMYK si usa soprattutto per...", opts:[
+      "I social media","La stampa","Lo schermo del telefono","I video online"], correct:1},
+    {q:"Cos'è un livello (layer)?", opts:[
+      "Il nome di un carattere tipografico","Un tipo particolare di pixel colorato","Un foglio separato per ogni elemento","Uno strumento per selezionare le forme"], correct:2},
+    {q:"Cos'è un tracciato (path) in Illustrator?", opts:[
+      "Un colore di sfondo","Un tipo di font","Un formato file","Punti collegati da linee o curve"], correct:3},
+    {q:"Quale formato mantiene lo sfondo trasparente?", opts:[
+      "PNG","JPG","Nessuno dei due","Solo in stampa"], correct:0},
+    {q:"Quale formato è vettoriale, leggero e pensato per il web?", opts:[
+      "PDF","SVG","JPG","AI"], correct:1},
+    {q:"A cosa serve la tavola da disegno (artboard) in Illustrator?", opts:[
+      "A contenere tutti gli strumenti disponibili","A cambiare il colore delle forme","Il foglio che verrà esportato","A salvare il file sul computer"], correct:2},
+    {q:"Cosa fa il tasto Annulla (Cmd+Z)?", opts:[
+      "Chiude il programma","Salva il file","Cambia colore alla forma","Riporta indietro l'ultima modifica fatta"], correct:3}
+  ]
+};
+const ROUND_PAROLE_VF = {
+  key:"parole-vf", title:"12 vero o falso", rk:"Round 2",
+  sub:"12 affermazioni sulla lezione: vero o falso?",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"Un'immagine vettoriale perde qualità se la ingrandisci molto.", opts:["Vero","Falso"], correct:1},
+    {q:"Un'immagine raster è fatta di pixel.", opts:["Vero","Falso"], correct:0},
+    {q:"Per lo schermo bastano circa 72 dpi.", opts:["Vero","Falso"], correct:0},
+    {q:"RGB e CMYK creano colore esattamente nello stesso modo.", opts:["Vero","Falso"], correct:1},
+    {q:"Un livello è come un foglio di lucido trasparente.", opts:["Vero","Falso"], correct:0},
+    {q:"Un tracciato è fatto di punti di ancoraggio collegati da linee.", opts:["Vero","Falso"], correct:0},
+    {q:"Un'interlinea troppo stretta rende il testo più facile da leggere.", opts:["Vero","Falso"], correct:1},
+    {q:"Il formato JPG supporta lo sfondo trasparente.", opts:["Vero","Falso"], correct:1},
+    {q:"Il file nativo di Illustrator si chiama AI.", opts:["Vero","Falso"], correct:0},
+    {q:"Raggruppare (group) permette di muovere più forme come se fossero una sola.", opts:["Vero","Falso"], correct:0},
+    {q:"Un'opacità al 100% significa che un elemento è invisibile.", opts:["Vero","Falso"], correct:1},
+    {q:"Lo strumento Penna serve a creare tracciati punto per punto.", opts:["Vero","Falso"], correct:0}
+  ]
+};
+const ROUND_PAROLE_GIOCO = {
+  key:"parole-sfida", title:"🎮 Sfida flash: abbina al volo", rk:"Round 3",
+  sub:"Ultimo giro: abbina al volo, senza pensarci troppo.",
+  type:"quiz",
+  randomize:true,
+  questions:[
+    {q:"⚡ Quale strumento crea tracciati punto per punto?", opts:["Penna","Selezione","Forme","Testo"], correct:0},
+    {q:"⚡ Quale strumento sposta e ridimensiona quello che hai già disegnato?", opts:["Penna","Selezione","Testo","Forme"], correct:1},
+    {q:"⚡ Dove trovi le opzioni per colore e livelli?", opts:["Nella tavola da disegno","Nella barra del titolo","Nei pannelli","Nel cestino"], correct:2},
+    {q:"⚡ Quale formato è perfetto per un logo con sfondo trasparente?", opts:["JPG","Nessuno dei due","PDF","PNG"], correct:3},
+    {q:"⚡ Quale formato è perfetto per una fotografia?", opts:["JPG","PNG","SVG","AI"], correct:0},
+    {q:"⚡ Cosa cambi se vuoi solo il colore DENTRO una forma?", opts:["Il contorno","Il riempimento","La tavola da disegno","Il livello"], correct:1},
+    {q:"⚡ Cosa cambi se vuoi solo la linea sul BORDO di una forma?", opts:["Il riempimento","Il livello","Il contorno","Il pannello"], correct:2},
+    {q:"⚡ RGB è associato a...", opts:["La stampa","La carta","L'inchiostro","Lo schermo"], correct:3}
+  ]
+};
+const ROUNDS_PAROLE = [ROUND_PAROLE_QUIZ, ROUND_PAROLE_VF, ROUND_PAROLE_GIOCO];
+
 /* Registro di TUTTI i round mai creati (di ogni prova), usato per ritrovare
    titolo/testo quando si legge lo storico di una prova passata. */
 const ROUND_REGISTRY = {};
-[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO, ...ROUNDS_BASI_GRAFICA, ...ROUNDS_LOGO_PERSONALE, ...ROUNDS_BASI2].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
+[...ROUNDS_RIEPILOGO, ...ROUNDS_CULTURA, ...ROUNDS_PRIMO_GIORNO, ...ROUNDS_BASI_GRAFICA, ...ROUNDS_LOGO_PERSONALE, ...ROUNDS_BASI2, ...ROUNDS_PREVENTIVO, ...ROUNDS_PAROLE].forEach(r=>{ ROUND_REGISTRY[r.key] = r; });
 
 /* Le prove disponibili. Ognuna ha una lista di classi a cui è visibile
    (visibleTo) — il docente la cambia dalla sua dashboard, salvata su
@@ -1000,6 +1151,22 @@ const PROVE = [
     desc:"10 domande pratiche (CMYK/RGB, quale programma usare), 10 vero/falso e una sfida flash — 3 round, circa 15 minuti.",
     visibleTo:["1ª Grafica"],
     rounds: ROUNDS_BASI2
+  },
+  {
+    id:"preventivo-01",
+    icon:"🧾",
+    title:"Cose da fare: Il preventivo",
+    desc:"15 domande, 15 vero/falso e una sfida flash di abbinamento — sulla lezione di come si costruisce e si vende un preventivo.",
+    visibleTo:["3ª Grafica"],
+    rounds: ROUNDS_PREVENTIVO
+  },
+  {
+    id:"parole-grafica-01",
+    icon:"🖊️",
+    title:"Cose da fare: Le parole della grafica",
+    desc:"12 domande, 12 vero/falso e una sfida flash di abbinamento — sul vocabolario di base e su Illustrator.",
+    visibleTo:["1ª Grafica"],
+    rounds: ROUNDS_PAROLE
   }
 ];
 
