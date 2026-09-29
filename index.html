@@ -975,8 +975,8 @@ const ROUND_PREVENTIVO_QUIZ = {
       "Da soli","In coppia","In gruppi da 3-4 persone","Tutta la classe insieme"], correct:2},
     {q:"Quante regole di grafica vengono date per le slide del preventivo?", opts:[
       "Sei","Due","Quattro","Tre"], correct:2},
-    {q:"Perché conviene indicare chiaramente \"cosa non è incluso\" in un preventivo?", opts:[
-      "Per allungare il documento","Per alzare il prezzo di nascosto","Per evitare equivoci su cosa riceverà davvero il cliente","Perché lo richiede la legge"], correct:2},
+    {q:"Quanto costa il pacchetto \"Essenziale\", secondo l'esempio della lezione?", opts:[
+      "400€","600€","900€","1.400€"], correct:1},
     {q:"Cosa NON è incluso di default in un preventivo, secondo la lezione?", opts:[
       "Le revisioni oltre quelle previste","Il prezzo totale","Le fasi del lavoro","La data di consegna"], correct:0}
   ]
@@ -1812,6 +1812,16 @@ function pendingAbandonedCount(acc){
     acc.startedProve[pid] && !acc.prove.find(p=>p.provaId===pid)
   ).length;
 }
+/* Come pendingAbandonedCount, ma esclude le prove già sbloccate (in attesa
+   che lo studente rientri): quelle non aspettano più un'azione da parte del
+   docente, quindi non devono far comparire il pallino rosso. */
+function pendingActionCount(acc){
+  if(!acc.startedProve) return 0;
+  const resumeAllowed = acc.resumeAllowed || {};
+  return Object.keys(acc.startedProve).filter(pid=>
+    acc.startedProve[pid] && !acc.prove.find(p=>p.provaId===pid) && !resumeAllowed[pid]
+  ).length;
+}
 
 async function hashPass(pw){
   const enc = new TextEncoder().encode(pw);
@@ -2318,6 +2328,11 @@ function renderQuizRound(round){
   const qi = state.currentQIdx;
   const question = round.questions[qi];
 
+  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length, scored:{}, picked:{}};
+  const ansState = state.answers[round.key];
+  if(!ansState.scored) ansState.scored = {};
+  if(!ansState.picked) ansState.picked = {};
+
   const qLabel = el("div","", `Domanda ${qi+1} di ${round.questions.length}`);
   qLabel.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;";
   card.appendChild(qLabel);
@@ -2327,29 +2342,39 @@ function renderQuizRound(round){
   const opts = el("div","opts");
   question.opts.forEach((optTxt, idx)=>{
     const b = el("button","opt", optTxt);
+    if(ansState.picked[qi]===idx) b.classList.add("chosen");
     b.onclick = ()=>{
-      if(!round.perQuestion) round.perQuestion = {};
-      round.perQuestion[qi] = idx;
-      if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length};
-      // advance
       const isCorrect = idx===question.correct;
-      state.answers[round.key]._last = isCorrect;
-      if(!state.answers[round.key].scored) state.answers[round.key].scored = {};
-      state.answers[round.key].scored[qi] = isCorrect ? 1 : 0;
-      if(!state.answers[round.key].picked) state.answers[round.key].picked = {};
-      state.answers[round.key].picked[qi] = idx;
-      state.answers[round.key].correct = Object.values(state.answers[round.key].scored).reduce((a,b)=>a+b,0);
-      // small delay feel via direct advance
-      if(qi < round.questions.length-1){
-        state.currentQIdx++;
-        render();
-      } else {
-        nextRoundOrFinish();
-      }
+      ansState.scored[qi] = isCorrect ? 1 : 0;
+      ansState.picked[qi] = idx;
+      ansState.correct = Object.values(ansState.scored).reduce((a,b)=>a+b,0);
+      render();
     };
     opts.appendChild(b);
   });
   card.appendChild(opts);
+
+  // navigazione avanti/indietro tra le domande dello stesso round: si può
+  // tornare su una domanda già risposta e cambiare risposta quando si vuole
+  const navRow = el("div","");
+  navRow.style.cssText = "display:flex;gap:10px;margin-top:18px;";
+  const backBtn = el("button","btn-secondary", "← Indietro");
+  backBtn.disabled = qi===0;
+  backBtn.style.flex = "1";
+  backBtn.onclick = ()=>{ state.currentQIdx--; render(); };
+  navRow.appendChild(backBtn);
+
+  const hasAnswer = ansState.picked[qi] !== undefined;
+  const isLast = qi === round.questions.length-1;
+  const nextBtn = el("button","btn-primary", isLast ? "Conferma e continua →" : "Avanti →");
+  nextBtn.disabled = !hasAnswer;
+  nextBtn.style.flex = "1";
+  nextBtn.onclick = ()=>{
+    if(isLast){ nextRoundOrFinish(); }
+    else { state.currentQIdx++; render(); }
+  };
+  navRow.appendChild(nextBtn);
+  card.appendChild(navRow);
 
   screen.appendChild(card);
   $app.appendChild(screen);
@@ -3241,7 +3266,7 @@ function renderTeacherClasseDetail(){
     filtered.forEach(s=>{
       const tr = document.createElement("tr");
       const voteClass = (s.voto??0)<=4?"low":(s.voto??0)<=7?"mid":"high";
-      const pending = pendingAbandonedCount(s);
+      const pending = pendingActionCount(s);
       const statoTxt = pending ? `⏳ ${pending}` : "—";
       const dotHtml = pending ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;vertical-align:middle;"></span>` : "";
       tr.innerHTML = `<td>${dotHtml}${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;margin-left:${pending?'15px':'0'};">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
