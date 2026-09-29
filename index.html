@@ -3243,7 +3243,8 @@ function renderTeacherClasseDetail(){
       const voteClass = (s.voto??0)<=4?"low":(s.voto??0)<=7?"mid":"high";
       const pending = pendingAbandonedCount(s);
       const statoTxt = pending ? `⏳ ${pending}` : "—";
-      tr.innerHTML = `<td>${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
+      const dotHtml = pending ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;vertical-align:middle;"></span>` : "";
+      tr.innerHTML = `<td>${dotHtml}${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;margin-left:${pending?'15px':'0'};">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
       tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.showCredentials = false; state.screen="teacher-detail"; render(); };
       tbody.appendChild(tr);
     });
@@ -3585,20 +3586,35 @@ function renderTeacherDetail(){
     pendingIds.forEach(pid=>{
       const provaDef = PROVE.find(x=>x.id===pid);
       const snap = s.inProgress && s.inProgress[pid];
+      const alreadyUnlocked = !!(s.resumeAllowed && s.resumeAllowed[pid]);
       const row = el("div","prova-row");
       const info = el("div","prova-row-info");
-      const statoTxt = snap
-        ? `Aperta ma non completata — c'è un progresso salvato: round ${snap.roundIndex+1} di ${snap.activeRounds.length}`
-        : "Aperta ma non completata — nessun progresso salvato, ripartirà da capo";
-      info.innerHTML = `<strong>${provaDef?provaDef.icon+" "+provaDef.title:pid}</strong><span>${statoTxt}</span>`;
+      let statoTxt;
+      if(alreadyUnlocked && snap){
+        statoTxt = `🔓 Sbloccata — in attesa che lo studente rientri (riprenderà dal round ${snap.roundIndex+1} di ${snap.activeRounds.length})`;
+      } else if(alreadyUnlocked){
+        statoTxt = "🔓 Sbloccata — in attesa che lo studente rientri";
+      } else if(snap){
+        statoTxt = `Aperta ma non completata — c'è un progresso salvato: round ${snap.roundIndex+1} di ${snap.activeRounds.length}`;
+      } else {
+        statoTxt = "Aperta ma non completata — nessun progresso salvato, ripartirà da capo";
+      }
+      info.innerHTML = `<strong>${provaDef?provaDef.icon+" "+provaDef.title:pid}</strong><span style="${alreadyUnlocked?'color:var(--green);font-weight:600;':''}">${statoTxt}</span>`;
       row.appendChild(info);
       const btnWrap = el("div","");
-      btnWrap.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
-      const unlockBtn = el("button","btn-secondary sm", snap ? "Sblocca (riprende)" : "Sblocca (da capo)");
-      unlockBtn.onclick = ()=>teacherUnlockProva(uname, pid);
+      btnWrap.style.cssText = "display:flex;gap:8px;flex-shrink:0;align-items:center;";
+      if(alreadyUnlocked){
+        const doneTag = el("span","", "✓ Sbloccata");
+        doneTag.style.cssText = "font-size:12.5px;font-weight:700;color:var(--green);padding:9px 14px;";
+        btnWrap.appendChild(doneTag);
+      } else {
+        const unlockBtn = el("button","btn-secondary sm", snap ? "Sblocca (riprende)" : "Sblocca (da capo)");
+        unlockBtn.onclick = ()=>teacherUnlockProva(uname, pid);
+        btnWrap.appendChild(unlockBtn);
+      }
       const zeroBtn = el("button","btn-ghost sm", "Concludi a 0€");
       zeroBtn.onclick = ()=>teacherZeroProva(uname, pid);
-      btnWrap.appendChild(unlockBtn); btnWrap.appendChild(zeroBtn);
+      btnWrap.appendChild(zeroBtn);
       row.appendChild(btnWrap);
       screen.appendChild(row);
     });
