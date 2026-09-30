@@ -1706,18 +1706,32 @@ function firestoreSetWithRetry(docRef, data, retriesLeft){
 function saveAccounts(a){
   ACCOUNTS_CACHE = a; // aggiornamento ottimistico: l'interfaccia reagisce subito, senza aspettare la rete
   if(db){
-    const before = LAST_KNOWN_ACCOUNT_KEYS;
-    const nowKeys = Object.keys(a);
-    before.forEach(k=>{ if(!nowKeys.includes(k)) db.collection("accounts").doc(k).delete().catch(()=>{}); });
-    nowKeys.forEach(k=>{
+    // IMPORTANTE: qui si scrivono SOLO gli account presenti in "a". Non si
+    // cancella mai nulla per differenza rispetto a un elenco precedente —
+    // quella logica c'era prima ma era pericolosa: se il dispositivo di uno
+    // studente non aveva ancora ricevuto in tempo reale le registrazioni più
+    // recenti di altri compagni, un salvataggio "normale" (es. il proprio
+    // risultato di una prova) poteva finire per cancellare gli account degli
+    // altri, semplicemente perché non li vedeva ancora nella sua copia locale.
+    // L'eliminazione di un account ora avviene SOLO ed esplicitamente dal
+    // bottone "Elimina" in Studenti registrati (vedi deleteAccountRemote).
+    Object.keys(a).forEach(k=>{
       firestoreSetWithRetry(db.collection("accounts").doc(k), a[k], 2).catch(()=>{
         showToast(`⚠️ Salvataggio non riuscito per ${a[k].nome||k} — controlla la connessione`);
       });
     });
-    LAST_KNOWN_ACCOUNT_KEYS = nowKeys;
   } else {
     try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
     catch(e){ showToast("Impossibile salvare il profilo su questo dispositivo"); }
+  }
+}
+/* Elimina DAVVERO e SOLO l'account indicato, in modo esplicito — l'unico
+   posto dell'app dove un profilo viene rimosso dal database. */
+function deleteAccountRemote(uname){
+  if(db){
+    db.collection("accounts").doc(uname).delete().catch(()=>{
+      showToast(`⚠️ Non sono riuscito a eliminare @${uname} online — controlla la connessione e riprova`);
+    });
   }
 }
 let LAST_KNOWN_ACCOUNT_KEYS = [];
@@ -1857,12 +1871,12 @@ function computeAvgVoto(prove){
 function fmtVoto(v){ return (v===null || v===undefined) ? "—" : v.toFixed(1); }
 
 /* Formula voto: si parte da 2 (voto minimo garantito, anche con 0€ di fatturato,
-   es. prova annullata dal docente), poi ogni 200€ di totale fa salire di un punto,
-   fino a un massimo di 10. Restituisce anche il credito residuo dopo aver "speso"
-   i 200€ per ogni punto di voto guadagnato. */
+   es. prova annullata dal docente), poi ogni 100€ di totale fa salire di un punto,
+   fino a un massimo di 10. Restituisce anche il credito residuo (sempre tra 0 e
+   99€) dopo aver "speso" i 100€ per ogni punto di voto guadagnato. */
 function votoFromTotale(totale){
-  const voto = Math.max(2, Math.min(10, 2 + Math.floor(totale/200)));
-  const credito = totale - (voto-2)*200;
+  const voto = Math.max(2, Math.min(10, 2 + Math.floor(totale/100)));
+  const credito = totale - (voto-2)*100;
   return {voto, credito};
 }
 
@@ -3582,10 +3596,11 @@ function renderTeacherStudenti(){
       row.appendChild(info);
       const delBtn = el("button","prova-toggle", "Elimina");
       delBtn.onclick = ()=>{
-        if(confirm(`Eliminare il profilo di ${acc.nome} ${acc.cognome} (@${uname}) da questo dispositivo? Tutti i suoi risultati andranno persi — esporta un backup prima, se non sei sicuro. Operazione non reversibile.`)){
+        if(confirm(`Eliminare il profilo di ${acc.nome} ${acc.cognome} (@${uname})? Tutti i suoi risultati andranno persi — esporta un backup prima, se non sei sicuro. Operazione non reversibile.`)){
           const accs = getAccounts();
           delete accs[uname];
-          saveAccounts(accs);
+          ACCOUNTS_CACHE = accs; // aggiorna subito la vista locale
+          deleteAccountRemote(uname); // e poi cancella DAVVERO, e SOLO, questo account online
           render();
         }
       };
@@ -3641,6 +3656,35 @@ function renderTeacherBackup(){
   backupCard.appendChild(importNote);
 
   screen.appendChild(backupCard);
+
+  const recalcCard = el("div","card");
+  recalcCard.style.marginTop = "16px";
+  recalcCard.appendChild(el("h2","", "Ricalcola tutti i voti"));
+  const recalcP = el("p","", "Se cambi la formula del voto (es. quanti euro servono per un punto), le prove già fatte non si aggiornano da sole. Usa questo tasto per far ripassare tutti gli studenti nella formula attuale, usando il loro fatturato reale già registrato — non tocca né cancella nessuna prova, ricalcola solo voto e credito.");
+  recalcP.style.cssText = "margin-bottom:14px;";
+  recalcCard.appendChild(recalcP);
+  const recalcBtn = el("button","btn-primary", "🔄 Ricalcola tutti gli studenti");
+  recalcBtn.onclick = ()=>{
+    const accounts = getAccounts();
+    const unames = Object.keys(accounts);
+    let changed = 0;
+    unames.forEach(u=>{
+      const acc = accounts[u];
+      if(acc.prove && acc.prove.length){
+        recomputeStudentProve(acc);
+        changed++;
+      }
+    });
+    if(changed){
+      saveAccounts(accounts);
+      showToast(`Ricalcolati ${changed} studenti su ${unames.length} ✓`);
+      render();
+    } else {
+      showToast("Nessuno studente con prove da ricalcolare");
+    }
+  };
+  recalcCard.appendChild(recalcBtn);
+  screen.appendChild(recalcCard);
 
   const dangerCard = el("div","card");
   dangerCard.style.marginTop="16px";
