@@ -1591,6 +1591,7 @@ let state = {
   showCredentials:false,
   showArchivedProve:false,
   openSettingsProvaId:null,
+  backupClassFilter:"tutte",
   teacherPreviewProvaId:null,
   pendingDispensa:null
 };
@@ -3685,6 +3686,68 @@ function renderTeacherBackup(){
   };
   recalcCard.appendChild(recalcBtn);
   screen.appendChild(recalcCard);
+
+  // --- strumenti mirati: scegli la classe, poi cancella voti o azzera crediti ---
+  const targetedCard = el("div","card");
+  targetedCard.style.marginTop = "16px";
+  targetedCard.appendChild(el("h2","", "Azzera voti o crediti, per classe"));
+  const targetedP = el("p","", "Scegli su quale classe agire, poi scegli cosa azzerare. Il fatturato e lo storico delle prove non vengono MAI toccati da questi due tasti: solo il numero del voto o del credito.");
+  targetedP.style.cssText = "margin-bottom:14px;";
+  targetedCard.appendChild(targetedP);
+
+  if(!state.backupClassFilter) state.backupClassFilter = "tutte";
+  const classPickRow = el("div","class-filter");
+  const allClassBtn = el("button","", "Tutte");
+  if(state.backupClassFilter==="tutte") allClassBtn.classList.add("sel");
+  allClassBtn.onclick = ()=>{ state.backupClassFilter="tutte"; render(); };
+  classPickRow.appendChild(allClassBtn);
+  TUTTE_LE_CLASSI.forEach(c=>{
+    const b = el("button","", c);
+    if(state.backupClassFilter===c) b.classList.add("sel");
+    b.onclick = ()=>{ state.backupClassFilter=c; render(); };
+    classPickRow.appendChild(b);
+  });
+  targetedCard.appendChild(classPickRow);
+
+  const targetedBtnRow = el("div","toolbar");
+  targetedBtnRow.style.marginTop = "14px";
+
+  const clearVotoBtn = el("button","btn-secondary", "Cancella voti");
+  clearVotoBtn.onclick = ()=>{
+    const label = state.backupClassFilter==="tutte" ? "TUTTE le classi" : `la classe ${state.backupClassFilter}`;
+    if(!confirm(`Azzerare il voto (torna a "—") di tutti gli studenti di ${label}? Fatturato e storico prove restano intatti. Operazione non reversibile.`)) return;
+    const accounts = getAccounts();
+    let changed = 0;
+    Object.values(accounts).forEach(acc=>{
+      if(state.backupClassFilter==="tutte" || acc.classe===state.backupClassFilter){
+        acc.voto = null;
+        changed++;
+      }
+    });
+    if(changed){ saveAccounts(accounts); showToast(`Voto azzerato per ${changed} studenti ✓`); render(); }
+    else showToast("Nessuno studente trovato in questa classe");
+  };
+  targetedBtnRow.appendChild(clearVotoBtn);
+
+  const clearCreditoBtn = el("button","btn-secondary", "Azzera credito");
+  clearCreditoBtn.onclick = ()=>{
+    const label = state.backupClassFilter==="tutte" ? "TUTTE le classi" : `la classe ${state.backupClassFilter}`;
+    if(!confirm(`Azzerare il credito (torna a 0€) di tutti gli studenti di ${label}? Fatturato e storico prove restano intatti. Operazione non reversibile.`)) return;
+    const accounts = getAccounts();
+    let changed = 0;
+    Object.values(accounts).forEach(acc=>{
+      if(state.backupClassFilter==="tutte" || acc.classe===state.backupClassFilter){
+        acc.credito = 0;
+        changed++;
+      }
+    });
+    if(changed){ saveAccounts(accounts); showToast(`Credito azzerato per ${changed} studenti ✓`); render(); }
+    else showToast("Nessuno studente trovato in questa classe");
+  };
+  targetedBtnRow.appendChild(clearCreditoBtn);
+
+  targetedCard.appendChild(targetedBtnRow);
+  screen.appendChild(targetedCard);
 
   const dangerCard = el("div","card");
   dangerCard.style.marginTop="16px";
