@@ -1689,13 +1689,31 @@ function getAccounts(){
   if(db) return ACCOUNTS_CACHE;
   try{ return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {}; }catch(e){ return {}; }
 }
+/* Prova a salvare un documento su Firestore, e se fallisce (es. un attimo di
+   wifi ballerino) riprova da sola un paio di volte prima di arrendersi
+   davvero — così una piccola interruzione di rete non fa perdere il
+   risultato di una prova. */
+function firestoreSetWithRetry(docRef, data, retriesLeft){
+  return docRef.set(data).catch(err=>{
+    if(retriesLeft > 0){
+      return new Promise(resolve=>setTimeout(resolve, 1500))
+        .then(()=>firestoreSetWithRetry(docRef, data, retriesLeft-1));
+    }
+    throw err;
+  });
+}
+
 function saveAccounts(a){
   ACCOUNTS_CACHE = a; // aggiornamento ottimistico: l'interfaccia reagisce subito, senza aspettare la rete
   if(db){
     const before = LAST_KNOWN_ACCOUNT_KEYS;
     const nowKeys = Object.keys(a);
     before.forEach(k=>{ if(!nowKeys.includes(k)) db.collection("accounts").doc(k).delete().catch(()=>{}); });
-    nowKeys.forEach(k=>{ db.collection("accounts").doc(k).set(a[k]).catch(()=>{ showToast("Salvataggio online non riuscito — riprova quando hai connessione"); }); });
+    nowKeys.forEach(k=>{
+      firestoreSetWithRetry(db.collection("accounts").doc(k), a[k], 2).catch(()=>{
+        showToast(`⚠️ Salvataggio non riuscito per ${a[k].nome||k} — controlla la connessione`);
+      });
+    });
     LAST_KNOWN_ACCOUNT_KEYS = nowKeys;
   } else {
     try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
@@ -1703,10 +1721,31 @@ function saveAccounts(a){
   }
 }
 let LAST_KNOWN_ACCOUNT_KEYS = [];
+let ACCOUNTS_LOADED = false; // true appena arriva la prima risposta vera da Firestore (o subito, se si lavora solo in locale)
+
+/* Aspetta che i profili siano davvero arrivati da Firestore, prima di fidarsi
+   di getAccounts(). Senza questo controllo, aprendo l'app e provando ad
+   accedere/registrarsi troppo in fretta (connessione lenta), l'app potrebbe
+   pensare per sbaglio che un profilo non esista ancora — con il rischio, in
+   fase di registrazione, di crearne uno nuovo sopra a uno già esistente.
+   Aspetta al massimo maxMs millisecondi, poi si arrende comunque. */
+function waitForAccountsLoaded(maxMs){
+  return new Promise(resolve=>{
+    if(!db || ACCOUNTS_LOADED) return resolve(true);
+    const start = Date.now();
+    const check = ()=>{
+      if(ACCOUNTS_LOADED) return resolve(true);
+      if(Date.now()-start > maxMs) return resolve(false);
+      setTimeout(check, 150);
+    };
+    check();
+  });
+}
 
 function initFirebase(){
   if(typeof FIREBASE_CONFIG === "undefined" || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey){
     console.warn("Firebase non configurato: gli account restano locali a questo dispositivo.");
+    ACCOUNTS_LOADED = true;
     return;
   }
   try{
@@ -1717,6 +1756,7 @@ function initFirebase(){
       snap.forEach(doc=>{ next[doc.id] = doc.data(); });
       ACCOUNTS_CACHE = next;
       LAST_KNOWN_ACCOUNT_KEYS = Object.keys(next);
+      ACCOUNTS_LOADED = true;
       render();
     }, err=>{
       console.error("Errore connessione Firestore (accounts)", err);
@@ -1914,8 +1954,13 @@ async function doSignup(){
   if(!f.nome.trim() || !f.cognome.trim() || !f.classe){ state.authError="Compila nome, cognome e classe"; render(); return; }
   if(!f.password || f.password.length<4){ state.authError="Password troppo corta (minimo 4 caratteri)"; render(); return; }
   if(f.password !== f.password2){ state.authError="Le due password non coincidono"; render(); return; }
+  // aspetto che i profili siano davvero arrivati da Firestore: senza questo,
+  // un username già esistente potrebbe sembrare libero per sbaglio e finire
+  // sovrascritto da un profilo nuovo
+  const loaded = await waitForAccountsLoaded(6000);
+  if(!loaded){ state.authError="Connessione lenta: sto ancora caricando i profili esistenti. Riprova tra qualche secondo."; render(); return; }
   const accounts = getAccounts();
-  if(accounts[uname]){ state.authError="Username già usato su questo Mac — scegline un altro"; render(); return; }
+  if(accounts[uname]){ state.authError="Username già usato — scegline un altro"; render(); return; }
   const passHash = await hashPass(f.password);
   accounts[uname] = {passHash, passPlain:f.password, nome:f.nome.trim(), cognome:f.cognome.trim(), classe:f.classe, credito:0, voto:null, prove:[], startedProve:{}};
   saveAccounts(accounts);
@@ -1925,9 +1970,11 @@ async function doSignup(){
 async function doLogin(){
   const f = state.authForm;
   const uname = normalizeUsername(f.username);
+  const loaded = await waitForAccountsLoaded(6000);
+  if(!loaded){ state.authError="Connessione lenta: sto ancora caricando i profili. Riprova tra qualche secondo."; render(); return; }
   const accounts = getAccounts();
   const acc = accounts[uname];
-  if(!acc){ state.authError="Nessun profilo con questo username su questo Mac. Creane uno nuovo."; render(); return; }
+  if(!acc){ state.authError="Nessun profilo con questo username. Controlla di averlo scritto giusto, o creane uno nuovo."; render(); return; }
   const passHash = await hashPass(f.password);
   if(passHash !== acc.passHash){ state.authError="Password errata"; render(); return; }
   loginSuccess(uname, acc);
@@ -2022,10 +2069,12 @@ function renderStudentAuth(){
   }
 
   const btn = el("button","btn-primary", state.authMode==="login" ? "Accedi →" : "Crea il mio profilo →");
+  const btnOriginalText = btn.textContent;
   btn.onclick = ()=>{
     btn.disabled = true;
+    btn.textContent = "Un attimo...";
     const task = state.authMode==="login" ? doLogin() : doSignup();
-    task.finally(()=>{ btn.disabled = false; });
+    task.finally(()=>{ btn.disabled = false; btn.textContent = btnOriginalText; });
   };
   card.appendChild(btn);
 
