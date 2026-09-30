@@ -1358,6 +1358,51 @@ async function publishProvaTitle(provaId, title){
   SHARED_PROVA_TITLES = newState;
   return {ok:true, shared:false};
 }
+
+/* Fabbrica generica per le impostazioni per prova (stesso schema condiviso
+   Firestore + ripiego locale di tutte le altre): usata per le nuove
+   impostazioni del pannello "⚙️" — blocco, tempo, navigazione — così non
+   serve riscrivere lo stesso codice per ognuna. */
+function makeProvaSettingStore(docName, defaultValue){
+  let shared = {};
+  const overrideKey = `gsc_prova_${docName}_overrides_v1`;
+  function getOverrides(){
+    try{ return JSON.parse(localStorage.getItem(overrideKey)) || {}; }catch(e){ return {}; }
+  }
+  function setOverride(provaId, value){
+    const ov = getOverrides();
+    ov[provaId] = value;
+    try{ localStorage.setItem(overrideKey, JSON.stringify(ov)); }catch(e){}
+  }
+  function get(provaId){
+    if(Object.prototype.hasOwnProperty.call(shared, provaId)) return shared[provaId];
+    const ov = getOverrides();
+    if(Object.prototype.hasOwnProperty.call(ov, provaId)) return ov[provaId];
+    return defaultValue;
+  }
+  async function publish(provaId, value){
+    const newState = {...shared, [provaId]: value};
+    if(db){
+      try{
+        await db.collection("config").doc(docName).set(newState);
+        shared = newState;
+        return {ok:true, shared:true};
+      }catch(e){ console.error(`Errore salvataggio ${docName}`, e); }
+    }
+    setOverride(provaId, value);
+    shared = newState;
+    return {ok:true, shared:false};
+  }
+  return {
+    get, publish,
+    setShared(data){ shared = data || {}; },
+  };
+}
+
+const provaAutoResumeStore = makeProvaSettingStore("provaAutoresume", false); // true = non si blocca mai, riprende sempre da dove interrotto
+const provaTimerStore = makeProvaSettingStore("provaTimer", 0);              // secondi per domanda nei round quiz; 0 = nessun limite
+const provaNoNavStore = makeProvaSettingStore("provaNoNav", false);          // true = niente tasto "indietro" tra le domande
+const provaDeletedStore = makeProvaSettingStore("provaDeleted", false);      // true = eliminata per sempre da ogni lista (il codice resta, ma nascosto)
 /* Quando il docente attiva/disattiva "conta per il voto" per una prova, la
    media degli studenti che l'hanno già fatta non si aggiorna da sola finché
    non tocca qualcos'altro: qui la ricalcoliamo subito per tutti loro, così il
@@ -1545,6 +1590,7 @@ let state = {
   teacherExpandedProvaTs:null,
   showCredentials:false,
   showArchivedProve:false,
+  openSettingsProvaId:null,
   teacherPreviewProvaId:null,
   pendingDispensa:null
 };
@@ -1552,6 +1598,7 @@ let state = {
 const $app = document.getElementById("app");
 
 function render(){
+  if(state.screen!=="student-round") clearQuizTimer();
   $app.innerHTML = "";
   if(state.screen==="home") return renderHome();
   if(state.screen==="student-auth") return renderStudentAuth();
@@ -1691,6 +1738,22 @@ function initFirebase(){
       SHARED_PROVA_TITLES = (doc.exists && doc.data()) || {};
       render();
     }, err=>console.error("Errore connessione Firestore (config provaTitles)", err));
+    db.collection("config").doc("provaAutoresume").onSnapshot(doc=>{
+      provaAutoResumeStore.setShared((doc.exists && doc.data()) || {});
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaAutoresume)", err));
+    db.collection("config").doc("provaTimer").onSnapshot(doc=>{
+      provaTimerStore.setShared((doc.exists && doc.data()) || {});
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaTimer)", err));
+    db.collection("config").doc("provaNoNav").onSnapshot(doc=>{
+      provaNoNavStore.setShared((doc.exists && doc.data()) || {});
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaNoNav)", err));
+    db.collection("config").doc("provaDeleted").onSnapshot(doc=>{
+      provaDeletedStore.setShared((doc.exists && doc.data()) || {});
+      render();
+    }, err=>console.error("Errore connessione Firestore (config provaDeleted)", err));
     db.collection("dispense").onSnapshot(snap=>{
       const next = {};
       snap.forEach(doc=>{ next[doc.id] = doc.data(); });
@@ -1821,6 +1884,11 @@ function pendingActionCount(acc){
   return Object.keys(acc.startedProve).filter(pid=>
     acc.startedProve[pid] && !acc.prove.find(p=>p.provaId===pid) && !resumeAllowed[pid]
   ).length;
+}
+/* Prove completate che il docente non ha ancora aperto almeno una volta. */
+function unreviewedCount(acc){
+  if(!acc.prove) return 0;
+  return acc.prove.filter(p=>!p.teacherReviewed).length;
 }
 
 async function hashPass(pw){
@@ -2102,7 +2170,8 @@ function renderStudentProveList(){
     if(completedRecord) return; // le completate stanno nella sezione sotto
     const alreadyStarted = !!startedProve[prova.id];
     const savedProgress = inProgressMap[prova.id];
-    const canResume = !!resumeAllowed[prova.id] && !!savedProgress;
+    const autoResume = provaAutoResumeStore.get(prova.id);
+    const canResume = !!savedProgress && (autoResume || !!resumeAllowed[prova.id]);
 
     let cardState; // "start" | "resume" | "abandoned"
     if(canResume) cardState = "resume";
@@ -2114,23 +2183,22 @@ function renderStudentProveList(){
       provaCard.innerHTML = `<div class="prova-label">Prova disponibile</div><h3>${prova.icon} ${getProvaTitle(prova)}</h3><p>${prova.desc}</p>`;
       const startBtn = el("button","btn-primary", `${prova.icon} Inizia →`);
       startBtn.onclick = ()=>{
-        if(!prova.noAbandonLock){
-          const accounts = getAccounts();
-          const accRef = accounts[state.username];
-          if(accRef){
-            if(!accRef.startedProve) accRef.startedProve = {};
-            accRef.startedProve[prova.id] = true;
-            saveAccounts(accounts);
-          }
+        const accounts = getAccounts();
+        const accRef = accounts[state.username];
+        if(accRef){
+          if(!accRef.startedProve) accRef.startedProve = {};
+          accRef.startedProve[prova.id] = true;
+          saveAccounts(accounts);
         }
         ACTIVE_ROUNDS = buildActiveRounds(prova); ACTIVE_PROVA = prova;
         state.roundIndex=0; state.currentQIdx=0; state.answers={}; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[];
-        if(!prova.noAbandonLock) saveInProgressSnapshot();
+        saveInProgressSnapshot();
         state.screen="student-round"; render();
       };
       provaCard.appendChild(startBtn);
     } else if(cardState==="resume"){
-      provaCard.innerHTML = `<div class="prova-label">🔓 Sbloccata dal docente</div><h3>${prova.icon} ${getProvaTitle(prova)}</h3><p>Riprendi da dove avevi lasciato — round ${savedProgress.roundIndex+1} di ${savedProgress.activeRounds.length}.</p>`;
+      const resumeLabel = autoResume ? "🔁 Puoi riprendere quando vuoi" : "🔓 Sbloccata dal docente";
+      provaCard.innerHTML = `<div class="prova-label">${resumeLabel}</div><h3>${prova.icon} ${getProvaTitle(prova)}</h3><p>Riprendi da dove avevi lasciato — round ${savedProgress.roundIndex+1} di ${savedProgress.activeRounds.length}.</p>`;
       const resumeBtn = el("button","btn-primary", `${prova.icon} Riprendi →`);
       resumeBtn.onclick = ()=>{
         const accounts = getAccounts();
@@ -2318,6 +2386,11 @@ function finishProva(){
 }
 
 /* --- quiz round --- */
+let QUIZ_TIMER_INTERVAL = null;
+function clearQuizTimer(){
+  if(QUIZ_TIMER_INTERVAL){ clearInterval(QUIZ_TIMER_INTERVAL); QUIZ_TIMER_INTERVAL = null; }
+}
+
 function renderQuizRound(round){
   $app.appendChild(topbar());
   const screen = el("div","screen");
@@ -2337,6 +2410,37 @@ function renderQuizRound(round){
   qLabel.style.cssText="font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;";
   card.appendChild(qLabel);
 
+  // prova a tempo (se il docente l'ha impostata): un conto alla rovescia per
+  // ogni domanda, allo scadere passa avanti segnando la domanda come sbagliata
+  const timerSeconds = ACTIVE_PROVA ? provaTimerStore.get(ACTIVE_PROVA.id) : 0;
+  const isLast = qi === round.questions.length-1;
+  clearQuizTimer();
+  if(timerSeconds > 0){
+    if(state.timerQIdx !== qi || !state.timerEndsAt){
+      state.timerQIdx = qi;
+      state.timerEndsAt = Date.now() + timerSeconds*1000;
+    }
+    const timerBox = el("div","", "");
+    timerBox.style.cssText = "text-align:right;font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;";
+    card.appendChild(timerBox);
+    const updateTimerDisplay = ()=>{
+      const remain = Math.max(0, Math.ceil((state.timerEndsAt - Date.now())/1000));
+      timerBox.textContent = `⏱ ${remain}s`;
+      if(remain<=0){
+        clearQuizTimer();
+        if(ansState.picked[qi]===undefined){ // tempo scaduto senza risposta: conta come sbagliata
+          ansState.scored[qi] = 0;
+          ansState.picked[qi] = -1;
+          ansState.correct = Object.values(ansState.scored).reduce((a,b)=>a+b,0);
+        }
+        state.timerEndsAt = null;
+        if(isLast){ nextRoundOrFinish(); } else { state.currentQIdx++; render(); }
+      }
+    };
+    QUIZ_TIMER_INTERVAL = setInterval(updateTimerDisplay, 250);
+    updateTimerDisplay();
+  }
+
   card.appendChild(el("div","q-text", question.q));
 
   const opts = el("div","opts");
@@ -2355,21 +2459,25 @@ function renderQuizRound(round){
   card.appendChild(opts);
 
   // navigazione avanti/indietro tra le domande dello stesso round: si può
-  // tornare su una domanda già risposta e cambiare risposta quando si vuole
+  // tornare su una domanda già risposta e cambiare risposta, a meno che il
+  // docente non abbia disattivato la navigazione all'indietro per questa prova
+  const navAllowed = !(ACTIVE_PROVA && provaNoNavStore.get(ACTIVE_PROVA.id));
   const navRow = el("div","");
   navRow.style.cssText = "display:flex;gap:10px;margin-top:18px;";
-  const backBtn = el("button","btn-secondary", "← Indietro");
-  backBtn.disabled = qi===0;
-  backBtn.style.flex = "1";
-  backBtn.onclick = ()=>{ state.currentQIdx--; render(); };
-  navRow.appendChild(backBtn);
+  if(navAllowed){
+    const backBtn = el("button","btn-secondary", "← Indietro");
+    backBtn.disabled = qi===0;
+    backBtn.style.flex = "1";
+    backBtn.onclick = ()=>{ state.timerEndsAt = null; state.currentQIdx--; render(); };
+    navRow.appendChild(backBtn);
+  }
 
   const hasAnswer = ansState.picked[qi] !== undefined;
-  const isLast = qi === round.questions.length-1;
   const nextBtn = el("button","btn-primary", isLast ? "Conferma e continua →" : "Avanti →");
   nextBtn.disabled = !hasAnswer;
   nextBtn.style.flex = "1";
   nextBtn.onclick = ()=>{
+    clearQuizTimer(); state.timerEndsAt = null;
     if(isLast){ nextRoundOrFinish(); }
     else { state.currentQIdx++; render(); }
   };
@@ -3029,7 +3137,7 @@ function renderTeacherProve(){
   const screen = el("div","screen");
   screen.appendChild(sectionTitle("🗓️","Prove"));
 
-  const archivedCount = PROVE.filter(p=>provaIsArchived(p.id)).length;
+  const archivedCount = PROVE.filter(p=>provaIsArchived(p.id) && !provaDeletedStore.get(p.id)).length;
   const archiveToggle = el("button","btn-ghost", state.showArchivedProve ? "◀ Torna alle prove attive" : `📦 Vedi archiviate (${archivedCount})`);
   archiveToggle.style.cssText = "margin-bottom:16px;border:1px solid var(--line);border-radius:12px;width:100%;text-align:center;";
   archiveToggle.onclick = ()=>{ state.showArchivedProve = !state.showArchivedProve; render(); };
@@ -3051,7 +3159,7 @@ function renderTeacherProve(){
   const matchesFilter = prova => state.teacherFilter==="tutte" || getProvaVisibility(prova).includes(state.teacherFilter);
 
   if(state.showArchivedProve){
-    const archivedProve = PROVE.filter(p=>provaIsArchived(p.id)).filter(matchesFilter);
+    const archivedProve = PROVE.filter(p=>provaIsArchived(p.id) && !provaDeletedStore.get(p.id)).filter(matchesFilter);
     if(!archivedProve.length){
       const empty = el("div","empty-state");
       empty.innerHTML = "<p>Nessuna prova archiviata al momento.</p>";
@@ -3062,6 +3170,8 @@ function renderTeacherProve(){
       const info = el("div","prova-row-info");
       info.innerHTML = `<strong>${prova.icon} ${getProvaTitle(prova)}</strong><span>Archiviata — nascosta dalla lista principale</span>`;
       row.appendChild(info);
+      const btnWrap2 = el("div","");
+      btnWrap2.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
       const restoreBtn = el("button","btn-secondary sm", "↩️ Riattiva");
       restoreBtn.onclick = async ()=>{
         showToast("Aggiorno...");
@@ -3069,7 +3179,18 @@ function renderTeacherProve(){
         showToast(res.shared ? "Riattivata ✓" : "Riattivata solo su questo dispositivo");
         if(!res.shared) render();
       };
-      row.appendChild(restoreBtn);
+      btnWrap2.appendChild(restoreBtn);
+      const deleteBtn = el("button","btn-ghost sm", "✕ Elimina");
+      deleteBtn.style.color = "var(--red)";
+      deleteBtn.onclick = async ()=>{
+        if(!confirm(`Eliminare definitivamente "${getProvaTitle(prova)}"? Sparirà da ogni lista dell'app, anche dalle archiviate — non potrai farla ricomparire da qui, dovrai chiedermelo per riattivarla nel codice.`)) return;
+        showToast("Elimino...");
+        const res = await provaDeletedStore.publish(prova.id, true);
+        showToast(res.shared ? "Eliminata ✓" : "Eliminata solo su questo dispositivo");
+        if(!res.shared) render();
+      };
+      btnWrap2.appendChild(deleteBtn);
+      row.appendChild(btnWrap2);
       screen.appendChild(row);
     });
     screen.appendChild(hubBackButton());
@@ -3077,7 +3198,7 @@ function renderTeacherProve(){
     return;
   }
 
-  const filteredActive = PROVE.filter(prova=>!provaIsArchived(prova.id)).filter(matchesFilter);
+  const filteredActive = PROVE.filter(prova=>!provaIsArchived(prova.id) && !provaDeletedStore.get(prova.id)).filter(matchesFilter);
   if(!filteredActive.length){
     const empty = el("div","empty-state");
     empty.innerHTML = "<p>Nessuna prova visibile a questa classe al momento.</p>";
@@ -3112,21 +3233,94 @@ function renderTeacherProve(){
     statusLine.style.cssText = "font-size:12.5px;margin:4px 0 12px;";
     provaMgmt.appendChild(statusLine);
 
-    const votoDisabled = provaHasVotoDisabled(prova.id);
-    const votoRow = el("div","");
-    votoRow.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:14px;";
-    const votoBtn = el("button","vis-chip" + (votoDisabled ? "" : " on"), votoDisabled ? "🚫 Voto disattivato" : "✓ Conta per il voto");
-    votoBtn.onclick = async ()=>{
-      showToast("Aggiorno...");
-      const res = await publishProvaNoVoto(prova.id, !votoDisabled);
-      showToast(res.shared ? "Aggiornato per tutti gli studenti ✓" : "Aggiornato solo su questo dispositivo");
-      if(!res.shared) render();
-    };
-    votoRow.appendChild(votoBtn);
-    const votoHint = el("p","", votoDisabled ? "Fa comunque guadagnare fatturato/credito, ma non pesa sulla media voto." : "Fatturato e voto contano entrambi normalmente.");
-    votoHint.style.cssText = "font-size:11.5px;margin:0;";
-    votoRow.appendChild(votoHint);
-    provaMgmt.appendChild(votoRow);
+    const settingsOpen = state.openSettingsProvaId === prova.id;
+    const settingsToggle = el("button","btn-ghost sm", settingsOpen ? "▲ Chiudi impostazioni" : "⚙️ Impostazioni");
+    settingsToggle.style.cssText = "margin-bottom:12px;";
+    settingsToggle.onclick = ()=>{ state.openSettingsProvaId = settingsOpen ? null : prova.id; render(); };
+    provaMgmt.appendChild(settingsToggle);
+
+    if(settingsOpen){
+      const panel = el("div","");
+      panel.style.cssText = "background:var(--surface-2);border-radius:14px;padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:16px;";
+
+      // --- voto ---
+      const votoDisabled = provaHasVotoDisabled(prova.id);
+      const votoRow = el("div","");
+      const votoBtn = el("button","vis-chip" + (votoDisabled ? "" : " on"), votoDisabled ? "🚫 Voto disattivato" : "✓ Conta per il voto");
+      votoBtn.onclick = async ()=>{
+        showToast("Aggiorno...");
+        const res = await publishProvaNoVoto(prova.id, !votoDisabled);
+        showToast(res.shared ? "Aggiornato per tutti gli studenti ✓" : "Aggiornato solo su questo dispositivo");
+        if(!res.shared) render();
+      };
+      votoRow.appendChild(votoBtn);
+      const votoHint = el("p","", votoDisabled ? "Fa comunque guadagnare fatturato/credito, ma non pesa sulla media voto." : "Fatturato e voto contano entrambi normalmente.");
+      votoHint.style.cssText = "font-size:11.5px;margin-top:6px;";
+      votoRow.appendChild(votoHint);
+      panel.appendChild(votoRow);
+
+      // --- blocco se abbandonata ---
+      const autoResumeOn = provaAutoResumeStore.get(prova.id);
+      const blockRow = el("div","");
+      const blockBtn = el("button","vis-chip" + (autoResumeOn ? " on" : ""), autoResumeOn ? "🔁 Riprende sempre da sola" : "🔒 Si blocca, sblocchi tu");
+      blockBtn.onclick = async ()=>{
+        showToast("Aggiorno...");
+        const res = await provaAutoResumeStore.publish(prova.id, !autoResumeOn);
+        showToast(res.shared ? "Aggiornato per tutti gli studenti ✓" : "Aggiornato solo su questo dispositivo");
+        if(!res.shared) render();
+      };
+      blockRow.appendChild(blockBtn);
+      const blockHint = el("p","", autoResumeOn ? "Se lo studente esce a metà, la ritrova sempre pronta da riprendere, senza bisogno del tuo sblocco." : "Se lo studente esce a metà, la prova si blocca finché non la sblocchi tu.");
+      blockHint.style.cssText = "font-size:11.5px;margin-top:6px;";
+      blockRow.appendChild(blockHint);
+      panel.appendChild(blockRow);
+
+      // --- tempo per domanda ---
+      const timerVal = provaTimerStore.get(prova.id) || 0;
+      const timerRow = el("div","");
+      const timerLabel = el("p","", "⏱ Tempo per domanda (round quiz)");
+      timerLabel.style.cssText = "font-size:12.5px;font-weight:600;margin-bottom:8px;";
+      timerRow.appendChild(timerLabel);
+      const timerInputRow = el("div","");
+      timerInputRow.style.cssText = "display:flex;align-items:center;gap:10px;";
+      const timerInput = document.createElement("input");
+      timerInput.type = "number"; timerInput.min = "0"; timerInput.placeholder = "0";
+      timerInput.value = timerVal || "";
+      timerInput.style.cssText = "width:80px;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 12px;font-size:14px;";
+      timerInputRow.appendChild(timerInput);
+      const timerSaveBtn = el("button","btn-secondary sm", "Salva");
+      timerSaveBtn.onclick = async ()=>{
+        const secs = Math.max(0, parseInt(timerInput.value, 10) || 0);
+        showToast("Aggiorno...");
+        const res = await provaTimerStore.publish(prova.id, secs);
+        showToast(res.shared ? (secs>0 ? `Impostato: ${secs}s a domanda ✓` : "Tempo disattivato ✓") : "Aggiornato solo su questo dispositivo");
+        if(!res.shared) render();
+      };
+      timerInputRow.appendChild(timerSaveBtn);
+      timerRow.appendChild(timerInputRow);
+      const timerHint = el("p","", "Secondi a disposizione per ogni domanda nei round quiz. 0 = nessun limite.");
+      timerHint.style.cssText = "font-size:11.5px;margin-top:6px;";
+      timerRow.appendChild(timerHint);
+      panel.appendChild(timerRow);
+
+      // --- navigazione avanti/indietro ---
+      const noNavOn = provaNoNavStore.get(prova.id);
+      const navRow2 = el("div","");
+      const navBtn = el("button","vis-chip" + (noNavOn ? "" : " on"), noNavOn ? "🚫 Niente tasto indietro" : "↔️ Avanti e indietro liberi");
+      navBtn.onclick = async ()=>{
+        showToast("Aggiorno...");
+        const res = await provaNoNavStore.publish(prova.id, !noNavOn);
+        showToast(res.shared ? "Aggiornato per tutti gli studenti ✓" : "Aggiornato solo su questo dispositivo");
+        if(!res.shared) render();
+      };
+      navRow2.appendChild(navBtn);
+      const navHint = el("p","", noNavOn ? "Lo studente può solo andare avanti, non tornare sulle domande precedenti." : "Lo studente può tornare indietro e cambiare risposta prima di confermare.");
+      navHint.style.cssText = "font-size:11.5px;margin-top:6px;";
+      navRow2.appendChild(navHint);
+      panel.appendChild(navRow2);
+
+      provaMgmt.appendChild(panel);
+    }
 
     const chipRow = el("div","class-visibility-chips");
     TUTTE_LE_CLASSI.forEach(classe=>{
@@ -3267,8 +3461,12 @@ function renderTeacherClasseDetail(){
       const tr = document.createElement("tr");
       const voteClass = (s.voto??0)<=4?"low":(s.voto??0)<=7?"mid":"high";
       const pending = pendingActionCount(s);
-      const statoTxt = pending ? `⏳ ${pending}` : "—";
-      const dotHtml = pending ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;vertical-align:middle;"></span>` : "";
+      const unreviewed = unreviewedCount(s);
+      const statoParts = [];
+      if(pending) statoParts.push(`⏳ ${pending}`);
+      if(unreviewed) statoParts.push(`🆕 ${unreviewed}`);
+      const statoTxt = statoParts.length ? statoParts.join(" · ") : "—";
+      const dotHtml = (pending || unreviewed) ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;vertical-align:middle;"></span>` : "";
       tr.innerHTML = `<td>${dotHtml}${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;margin-left:${pending?'15px':'0'};">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
       tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.showCredentials = false; state.screen="teacher-detail"; render(); };
       tbody.appendChild(tr);
@@ -3652,16 +3850,30 @@ function renderTeacherDetail(){
   [...s.prove].sort((a,b)=>b.ts-a.ts).forEach(p=>{
     const item = el("div","hist-item");
     const top = el("div","hist-top");
-    top.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+    const unreviewedDot = !p.teacherReviewed ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;"></span>` : "";
+    top.innerHTML = `<span>${unreviewedDot}${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
     item.appendChild(top);
     const line = el("div","", `Compenso: ${p.gross}€ · Credito precedente: ${p.creditoPrima}€ · Totale: ${p.totale}€`);
     line.style.fontSize="12px"; line.style.color="var(--text-dim)";
     item.appendChild(line);
 
     const isOpen = state.teacherExpandedProvaTs === p.ts;
-    const toggleBtn = el("button","btn-ghost sm", isOpen ? "▲ Chiudi correzione" : "▾ Apri correzione");
+    const toggleBtn = el("button","btn-ghost sm", isOpen ? "▲ Chiudi correzione" : (p.teacherReviewed ? "▾ Apri correzione" : "▾ Apri correzione (da vedere)"));
     toggleBtn.style.marginTop = "8px";
-    toggleBtn.onclick = ()=>{ state.teacherExpandedProvaTs = isOpen ? null : p.ts; render(); };
+    toggleBtn.onclick = ()=>{
+      const opening = !isOpen;
+      state.teacherExpandedProvaTs = opening ? p.ts : null;
+      if(opening && !p.teacherReviewed){
+        // aprendola per la prima volta, la segno come vista: il pallino rosso sparisce
+        const accounts = getAccounts();
+        const accRef = accounts[uname];
+        if(accRef){
+          const rec = accRef.prove.find(x=>x.ts===p.ts);
+          if(rec){ rec.teacherReviewed = true; saveAccounts(accounts); }
+        }
+      }
+      render();
+    };
     item.appendChild(toggleBtn);
 
     if(isOpen){
