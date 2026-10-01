@@ -1056,8 +1056,8 @@ const ROUND_PAROLE_QUIZ = {
   ]
 };
 const ROUND_PAROLE_VF = {
-  key:"parole-vf", title:"12 vero o falso", rk:"Round 2",
-  sub:"12 affermazioni sulla lezione: vero o falso?",
+  key:"parole-vf", title:"15 vero o falso", rk:"Round 4",
+  sub:"15 affermazioni sulla lezione: vero o falso?",
   type:"quiz",
   randomize:true,
   questions:[
@@ -1072,7 +1072,10 @@ const ROUND_PAROLE_VF = {
     {q:"Il file nativo di Illustrator si chiama AI.", opts:["Vero","Falso"], correct:0},
     {q:"Raggruppare (group) permette di muovere più forme come se fossero una sola.", opts:["Vero","Falso"], correct:0},
     {q:"Un'opacità al 100% significa che un elemento è invisibile.", opts:["Vero","Falso"], correct:1},
-    {q:"Lo strumento Penna serve a creare tracciati punto per punto.", opts:["Vero","Falso"], correct:0}
+    {q:"Lo strumento Penna serve a creare tracciati punto per punto.", opts:["Vero","Falso"], correct:0},
+    {q:"Allineare gli elementi di una grafica la fa sembrare più disordinata.", opts:["Vero","Falso"], correct:1},
+    {q:"Copia e Incolla permette di duplicare una forma invece di ridisegnarla.", opts:["Vero","Falso"], correct:0},
+    {q:"Un colore esadecimale (es. #FF6B4A) resta identico su qualsiasi schermo o programma.", opts:["Vero","Falso"], correct:0}
   ]
 };
 const ROUND_PAROLE_GIOCO = {
@@ -1091,7 +1094,34 @@ const ROUND_PAROLE_GIOCO = {
     {q:"⚡ RGB è associato a...", opts:["La stampa","La carta","L'inchiostro","Lo schermo"], correct:3}
   ]
 };
-const ROUNDS_PAROLE = [ROUND_PAROLE_QUIZ, ROUND_PAROLE_VF, ROUND_PAROLE_GIOCO];
+/* ---- round "Con parole tue" per "Le parole della grafica": domande aperte
+   sui termini nuovi (allineamento, copia/incolla, salvare, opacità) ---- */
+const ROUND_PAROLE_APERTE = {
+  key:"parole-aperte", title:"Con parole tue", rk:"Round 2",
+  sub:"Spiega questi concetti come li spiegheresti a un compagno.",
+  type:"aperte",
+  questions:[
+    {id:"pa1", q:"Spiega con parole tue perché allineare gli elementi di una grafica la fa sembrare più curata. Fai un esempio."},
+    {id:"pa2", q:"Fai un esempio (anche inventato da te) di quando useresti Copia e Incolla invece di ridisegnare qualcosa da zero."},
+    {id:"pa3", q:"Perché è importante salvare spesso mentre lavori, e non solo alla fine? Cosa potrebbe succedere altrimenti?"},
+    {id:"pa4", q:"Descrivi con parole tue cos'è l'opacità, usando un esempio diverso da quello della tenda visto in lezione."}
+  ]
+};
+
+/* ---- round "Caccia alla grafica" per "Le parole della grafica": cercare
+   online esempi veri di contrasto, griglia/allineamento, colore esadecimale ---- */
+const ROUND_PAROLE_RICERCA = {
+  key:"parole-ricerca", title:"Caccia alla grafica", rk:"Round 3",
+  sub:"Vai su internet, cerca, trova, fai uno screenshot e ritaglialo — poi caricalo qui sotto.",
+  type:"ricerca",
+  tasks:[
+    {id:"pr1", prompt:"Cerca online due locandine o poster: una con un buon contrasto (testo che si legge bene) e una con scarso contrasto (testo che si vede a fatica). Fai uno screenshot che li mostri entrambi, anche affiancati, e caricalo."},
+    {id:"pr2", prompt:"Cerca online un esempio di griglia ben allineata — un profilo Instagram curato, o un sito web con i contenuti in righe e colonne ordinate. Fai uno screenshot e caricalo."},
+    {id:"pr3", prompt:"Cerca online (basta scrivere \"color picker\" su Google) e trova il codice esadecimale di un colore che ti piace. Fai uno screenshot che mostri il codice trovato e caricalo."}
+  ]
+};
+
+const ROUNDS_PAROLE = [ROUND_PAROLE_QUIZ, ROUND_PAROLE_APERTE, ROUND_PAROLE_RICERCA, ROUND_PAROLE_VF];
 
 /* Registro di TUTTI i round mai creati (di ogni prova), usato per ritrovare
    titolo/testo quando si legge lo storico di una prova passata. */
@@ -1164,7 +1194,7 @@ const PROVE = [
     id:"parole-grafica-01",
     icon:"🖊️",
     title:"Cose da fare: Le parole della grafica",
-    desc:"12 domande, 12 vero/falso e una sfida flash di abbinamento — sul vocabolario di base e su Illustrator.",
+    desc:"12 domande, domande aperte, una caccia alla grafica online e 15 vero/falso — sul vocabolario di base e su Illustrator.",
     visibleTo:["1ª Grafica"],
     rounds: ROUNDS_PAROLE
   }
