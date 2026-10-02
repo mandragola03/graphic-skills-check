@@ -504,7 +504,7 @@ const STORAGE_KEY = "gsc_teacher_db_v1";
    nuovo file: appare nello Spazio docente, così Daniel può controllare al
    volo se il sito ha davvero caricato l'ultima versione, senza dover cercare
    il codice su GitHub ogni volta. */
-const APP_VERSION = "2026-10-01 — sezioni 3ª A/3ª B";
+const APP_VERSION = "2026-10-01 — elimina prova dallo storico studente";
 
 /* ---------------- DOMANDE ---------------- */
 
@@ -4117,9 +4117,11 @@ function renderTeacherDetail(){
     line.style.fontSize="12px"; line.style.color="var(--text-dim)";
     item.appendChild(line);
 
+    const btnRow3 = el("div","");
+    btnRow3.style.cssText = "display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;";
+
     const isOpen = state.teacherExpandedProvaTs === p.ts;
     const toggleBtn = el("button","btn-ghost sm", isOpen ? "▲ Chiudi correzione" : (p.teacherReviewed ? "▾ Apri correzione" : "▾ Apri correzione (da vedere)"));
-    toggleBtn.style.marginTop = "8px";
     toggleBtn.onclick = ()=>{
       const opening = !isOpen;
       state.teacherExpandedProvaTs = opening ? p.ts : null;
@@ -4134,7 +4136,25 @@ function renderTeacherDetail(){
       }
       render();
     };
-    item.appendChild(toggleBtn);
+    btnRow3.appendChild(toggleBtn);
+
+    const deleteProvaBtn = el("button","btn-ghost sm", "🗑️ Elimina prova");
+    deleteProvaBtn.style.color = "var(--red)";
+    deleteProvaBtn.onclick = ()=>{
+      if(!confirm(`Eliminare del tutto "${p.provaTitle||"questa prova"}" (${new Date(p.ts).toLocaleDateString("it-IT")}) dallo storico di ${s.nome}? Fatturato, credito e voto si ricalcolano subito senza questa prova. Operazione non reversibile.`)) return;
+      const accounts = getAccounts();
+      const accRef = accounts[uname];
+      if(!accRef) return;
+      accRef.prove = accRef.prove.filter(x=>x.ts!==p.ts);
+      recomputeStudentProve(accRef); // ricalcola subito credito/totale/voto di tutte le prove rimaste, e la media
+      saveAccounts(accounts);
+      if(state.teacherExpandedProvaTs===p.ts) state.teacherExpandedProvaTs=null;
+      showToast("Prova eliminata, dati ricalcolati ✓");
+      render();
+    };
+    btnRow3.appendChild(deleteProvaBtn);
+
+    item.appendChild(btnRow3);
 
     if(isOpen){
       const detail = buildProvaReviewBlock(p, {
