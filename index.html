@@ -504,7 +504,7 @@ const STORAGE_KEY = "gsc_teacher_db_v1";
    nuovo file: appare nello Spazio docente, così Daniel può controllare al
    volo se il sito ha davvero caricato l'ultima versione, senza dover cercare
    il codice su GitHub ogni volta. */
-const APP_VERSION = "2026-10-01 — pulsante Invia la prova + conferma salvataggio";
+const APP_VERSION = "2026-10-01 — sezioni 3ª A/3ª B";
 
 /* ---------------- DOMANDE ---------------- */
 
@@ -2157,7 +2157,8 @@ function renderStudentProfile(){
   top.innerHTML = `<div class="avatar-circle">${initials.toUpperCase()}</div>`;
   const txt = el("div","");
   txt.appendChild(el("h2","", `${acc.nome} ${acc.cognome}`));
-  const sub = el("p","", `Classe ${acc.classe} · @${state.username}`);
+  const sezioneSuffix = (acc.classe==="3ª Grafica" && acc.sezione) ? ` ${acc.sezione}` : "";
+  const sub = el("p","", `Classe ${acc.classe}${sezioneSuffix} · @${state.username}`);
   sub.style.marginTop="3px";
   txt.appendChild(sub);
   top.appendChild(txt);
@@ -2171,6 +2172,31 @@ function renderStudentProfile(){
   const s4 = el("div","stat-box"); s4.innerHTML = `<div class="num">${acc.prove.length}</div><div class="lbl">Prove fatte</div>`;
   stats.appendChild(s1); stats.appendChild(s2); stats.appendChild(s3); stats.appendChild(s4);
   card.appendChild(stats);
+
+  // scelta sezione (solo 3ª Grafica, solo se non ancora scelta, irreversibile una volta data
+  if(acc.classe==="3ª Grafica" && !acc.sezione){
+    const sezioneBox = el("div","");
+    sezioneBox.style.cssText = "background:var(--surface-2);border:1px solid var(--gold);border-radius:16px;padding:18px;margin-bottom:20px;";
+    sezioneBox.appendChild(el("h3","", "Conferma la tua sezione"));
+    const sezioneP = el("p","", "La tua classe si divide in due sezioni. Scegli la tua — una volta confermata non si può più cambiare.");
+    sezioneP.style.cssText = "font-size:13px;margin:8px 0 14px;";
+    sezioneBox.appendChild(sezioneP);
+    const sezioneRow = el("div","");
+    sezioneRow.style.cssText = "display:flex;gap:10px;";
+    ["A","B"].forEach(sez=>{
+      const btn = el("button","btn-primary", `3ª ${sez}`);
+      btn.style.flex = "1";
+      btn.onclick = ()=>{
+        if(!confirm(`Confermi di essere nella sezione 3ª ${sez}? Non potrai più cambiarla da solo.`)) return;
+        const accounts2 = getAccounts();
+        const accRef = accounts2[state.username];
+        if(accRef){ accRef.sezione = sez; saveAccounts(accounts2); render(); }
+      };
+      sezioneRow.appendChild(btn);
+    });
+    sezioneBox.appendChild(sezioneRow);
+    card.appendChild(sezioneBox);
+  }
 
   // due card di navigazione, invece di elenchi lunghi direttamente in home:
   // utile ora che dispense e prove nel tempo diventeranno tante
@@ -3607,7 +3633,8 @@ function renderTeacherClasseDetail(){
       if(unreviewed) statoParts.push(`🆕 ${unreviewed}`);
       const statoTxt = statoParts.length ? statoParts.join(" · ") : "—";
       const dotHtml = (pending || unreviewed) ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;vertical-align:middle;"></span>` : "";
-      tr.innerHTML = `<td>${dotHtml}${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;margin-left:${pending?'15px':'0'};">@${s.key}</span></td><td>${s.classe}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
+      const classeTxt = (s.classe==="3ª Grafica") ? `${s.classe}${s.sezione ? " "+s.sezione : " (?)"}` : s.classe;
+      tr.innerHTML = `<td>${dotHtml}${s.cognome} ${s.nome}<br><span style="color:var(--text-dim);font-size:11px;margin-left:${pending?'15px':'0'};">@${s.key}</span></td><td>${classeTxt}</td><td>${calcFatturato(s.prove)}€</td><td>${s.credito||0}€</td><td><span class="vote-pill ${voteClass}">${fmtVoto(s.voto)}</span></td><td>${statoTxt}</td>`;
       tr.onclick = ()=>{ state.teacherDetailKey = s.key; state.showCredentials = false; state.screen="teacher-detail"; render(); };
       tbody.appendChild(tr);
     });
@@ -3998,7 +4025,8 @@ function renderTeacherDetail(){
 
   const card = el("div","card");
   card.appendChild(el("h2","", `${s.cognome} ${s.nome}`));
-  const sub = el("p","", `Classe ${s.classe} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}`);
+  const classeDettTxt = (s.classe==="3ª Grafica") ? `${s.classe}${s.sezione ? " "+s.sezione : " (sezione non ancora scelta)"}` : s.classe;
+  const sub = el("p","", `Classe ${classeDettTxt} · Fatturato totale: ${calcFatturato(s.prove)}€ · Credito residuo: ${s.credito}€ · Voto attuale: ${fmtVoto(s.voto)}`);
   sub.style.marginTop="6px";
   card.appendChild(sub);
 
