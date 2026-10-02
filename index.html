@@ -500,6 +500,11 @@ const FIREBASE_CONFIG = {
 ========================================================= */
 
 const STORAGE_KEY = "gsc_teacher_db_v1";
+/* Cambia questa riga (data + una breve nota) ogni volta che Claude dà un
+   nuovo file: appare nello Spazio docente, così Daniel può controllare al
+   volo se il sito ha davvero caricato l'ultima versione, senza dover cercare
+   il codice su GitHub ogni volta. */
+const APP_VERSION = "2026-10-01 — pulsante Invia la prova + conferma salvataggio";
 
 /* ---------------- DOMANDE ---------------- */
 
@@ -1622,6 +1627,7 @@ let state = {
   showArchivedProve:false,
   openSettingsProvaId:null,
   backupClassFilter:"tutte",
+  sendStatus:null,
   teacherPreviewProvaId:null,
   pendingDispensa:null
 };
@@ -2285,7 +2291,7 @@ function renderStudentProveList(){
           saveAccounts(accounts);
         }
         ACTIVE_ROUNDS = buildActiveRounds(prova); ACTIVE_PROVA = prova;
-        state.roundIndex=0; state.currentQIdx=0; state.answers={}; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[];
+        state.roundIndex=0; state.currentQIdx=0; state.answers={}; state.bossStepIdx=0; state.bossIdea=""; state.multiSel=[]; state.sendStatus=null;
         saveInProgressSnapshot();
         state.screen="student-round"; render();
       };
@@ -2469,14 +2475,32 @@ function finishProva(){
     if(acc.startedProve) delete acc.startedProve[ACTIVE_PROVA.id];
     if(acc.inProgress) delete acc.inProgress[ACTIVE_PROVA.id];
     if(acc.resumeAllowed) delete acc.resumeAllowed[ACTIVE_PROVA.id];
-    saveAccounts(accounts);
+    saveAccounts(accounts); // salvataggio ottimistico, come sempre
+    confirmProvaSaved(); // in più: aspetta la conferma VERA da Firestore, per mostrarla allo studente
   } else {
     // fallback, non dovrebbe succedere: profilo non trovato
     const voto = votoFromTotale(gross).voto;
     prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, creditoPrima:0, totale:gross, voto, rounds:roundsSnapshot, idea};
+    state.sendStatus = "error"; // senza un profilo non c'è nulla da salvare davvero
   }
   state.lastProva = prova;
   state.screen = "student-result";
+}
+
+/* Aspetta la conferma VERA (non solo ottimistica) che il risultato sia
+   arrivato su Firestore, e aggiorna lo stato mostrato allo studente di
+   conseguenza. Richiamabile anche a mano dal tasto "Invia la prova" in caso
+   di errore, per riprovare senza perdere nulla. */
+function confirmProvaSaved(){
+  if(!db){ state.sendStatus = "success"; render(); return; } // solo locale: è già salvato per davvero
+  state.sendStatus = "pending";
+  render();
+  const accounts = getAccounts();
+  const acc = accounts[state.username];
+  if(!acc){ state.sendStatus = "error"; render(); return; }
+  firestoreSetWithRetry(db.collection("accounts").doc(state.username), acc, 2)
+    .then(()=>{ state.sendStatus = "success"; render(); })
+    .catch(()=>{ state.sendStatus = "error"; render(); });
 }
 
 /* --- quiz round --- */
@@ -2952,8 +2976,26 @@ function renderStudentResult(){
   const levelTag = el("div","level-tag", `Voto: ${voto} · Livello: ${level}`);
   receipt.appendChild(levelTag);
 
-  const savedTag = el("div","saved-tag", "✓ Salvato — il tuo insegnante lo vede già, non devi inviare nulla");
-  receipt.appendChild(savedTag);
+  const sendStatus = state.sendStatus || "pending";
+  if(sendStatus==="pending"){
+    const pendingTag = el("div","saved-tag", "⏳ Sto salvando...");
+    pendingTag.style.color = "var(--text-dim)";
+    receipt.appendChild(pendingTag);
+  } else if(sendStatus==="success"){
+    const savedTag = el("div","saved-tag", "✓ Salvato e confermato — il tuo insegnante lo vede già");
+    receipt.appendChild(savedTag);
+  } else {
+    const errorBox = el("div","");
+    errorBox.style.cssText = "margin-top:10px;";
+    const errorTag = el("div","saved-tag", "⚠️ Non sono riuscito a salvare — controlla la connessione");
+    errorTag.style.color = "var(--red)";
+    errorBox.appendChild(errorTag);
+    const sendBtn = el("button","btn-primary", "📤 Invia la prova");
+    sendBtn.style.cssText = "margin-top:10px;";
+    sendBtn.onclick = ()=>confirmProvaSaved();
+    errorBox.appendChild(sendBtn);
+    receipt.appendChild(errorBox);
+  }
 
   const note = el("p","", "Il voto sul tuo profilo è la media di tutte le prove che hai completato, non solo di questa.");
   note.style.cssText="font-size:12px;margin-top:14px;";
@@ -3024,6 +3066,10 @@ function renderTeacherHub(){
   const heroP = el("p","", "Gestisci prove, classi, studenti e backup.");
   hero.appendChild(heroP);
   screen.appendChild(hero);
+
+  const versionTag = el("p","", `Versione caricata: ${APP_VERSION}`);
+  versionTag.style.cssText = "font-size:11px;color:#54586b;margin-bottom:22px;";
+  screen.appendChild(versionTag);
 
   const db = getDB();
   const students = Object.values(db.students);
