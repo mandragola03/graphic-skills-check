@@ -504,7 +504,7 @@ const STORAGE_KEY = "gsc_teacher_db_v1";
    nuovo file: appare nello Spazio docente, così Daniel può controllare al
    volo se il sito ha davvero caricato l'ultima versione, senza dover cercare
    il codice su GitHub ogni volta. */
-const APP_VERSION = "2026-10-01 — elimina prova dallo storico studente";
+const APP_VERSION = "2026-10-01 — filtri separati 3ª A / 3ª B in Classi";
 
 /* ---------------- DOMANDE ---------------- */
 
@@ -3569,6 +3569,17 @@ function renderTeacherClassi(){
 
   const grid = el("div","home-cards");
   classi.forEach(c=>{
+    if(c==="3ª Grafica"){
+      [["3A","3ª Grafica A"],["3B","3ª Grafica B"],["3ª Grafica","3ª Grafica — da scegliere"]].forEach(([val,label])=>{
+        const inGroup = students.filter(s=>matchesTeacherFilter(s, val));
+        const tile = el("button","role-card");
+        const avgVoto = inGroup.length ? (inGroup.reduce((s,x)=>s+(x.voto||0),0)/inGroup.length).toFixed(1) : "—";
+        tile.innerHTML = `<div class="icon">🎓</div><div class="txt"><h3>${label}</h3><p>${inGroup.length} studenti registrati · media voto ${avgVoto}</p></div>`;
+        tile.onclick = ()=>{ state.teacherFilter=val; state.screen="teacher-classe-detail"; render(); };
+        grid.appendChild(tile);
+      });
+      return;
+    }
     const inClass = students.filter(s=>s.classe===c);
     const tile = el("button","role-card");
     const avgVoto = inClass.length ? (inClass.reduce((s,x)=>s+(x.voto||0),0)/inClass.length).toFixed(1) : "—";
@@ -3586,32 +3597,58 @@ function renderTeacherClassi(){
   $app.appendChild(screen);
 }
 
+/* "3A"/"3B" sono filtri speciali (non classi vere): rappresentano chi di 3ª
+   Grafica ha già scelto quella sezione. Il filtro "3ª Grafica" da solo
+   rappresenta invece chi di 3ª non ha ancora scelto — così le tre liste non
+   si mescolano mai, e "3ª Grafica" si svuota mano a mano che gli studenti
+   scelgono A o B. */
+function matchesTeacherFilter(s, filter){
+  if(filter==="tutte") return true;
+  if(filter==="3A") return s.classe==="3ª Grafica" && s.sezione==="A";
+  if(filter==="3B") return s.classe==="3ª Grafica" && s.sezione==="B";
+  if(filter==="3ª Grafica") return s.classe==="3ª Grafica" && !s.sezione;
+  return s.classe===filter;
+}
+function teacherFilterLabel(filter){
+  if(filter==="tutte") return "Tutte le classi";
+  if(filter==="3A") return "3ª Grafica A";
+  if(filter==="3B") return "3ª Grafica B";
+  if(filter==="3ª Grafica") return "3ª Grafica (da scegliere)";
+  return `Classe ${filter}`;
+}
+
 function renderTeacherClasseDetail(){
   $app.appendChild(topbar());
   const screen = el("div","screen");
-  const label = state.teacherFilter==="tutte" ? "Tutte le classi" : `Classe ${state.teacherFilter}`;
-  screen.appendChild(sectionTitle("🎓", label));
+  screen.appendChild(sectionTitle("🎓", teacherFilterLabel(state.teacherFilter)));
 
   const accounts = getAccounts();
   const students = Object.entries(accounts).map(([uname,a])=>({key:uname, ...a}));
-  const classes = Array.from(new Set(students.map(s=>s.classe))).sort();
 
-  if(classes.length){
-    const filterBar = el("div","class-filter");
-    const allBtn = el("button","", "Tutte");
-    if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
-    allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
-    filterBar.appendChild(allBtn);
-    classes.forEach(c=>{
+  // barra filtri: sempre tutte le classi conosciute, con 3ª Grafica spezzata in tre
+  const filterBar = el("div","class-filter");
+  const allBtn = el("button","", "Tutte");
+  if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+  allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
+  filterBar.appendChild(allBtn);
+  TUTTE_LE_CLASSI.forEach(c=>{
+    if(c==="3ª Grafica"){
+      [["3A","3ª A"],["3B","3ª B"],["3ª Grafica","3ª (?)"]].forEach(([val,lbl])=>{
+        const b = el("button","", lbl);
+        if(state.teacherFilter===val) b.classList.add("sel");
+        b.onclick=()=>{ state.teacherFilter=val; render(); };
+        filterBar.appendChild(b);
+      });
+    } else {
       const b = el("button","", c);
       if(state.teacherFilter===c) b.classList.add("sel");
       b.onclick=()=>{ state.teacherFilter=c; render(); };
       filterBar.appendChild(b);
-    });
-    screen.appendChild(filterBar);
-  }
+    }
+  });
+  screen.appendChild(filterBar);
 
-  const filtered = students.filter(s=> state.teacherFilter==="tutte" || s.classe===state.teacherFilter)
+  const filtered = students.filter(s=>matchesTeacherFilter(s, state.teacherFilter))
     .sort((a,b)=> (a.classe+a.cognome).localeCompare(b.classe+b.cognome));
 
   if(!filtered.length){
