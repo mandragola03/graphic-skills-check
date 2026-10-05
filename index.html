@@ -504,7 +504,7 @@ const STORAGE_KEY = "gsc_teacher_db_v1";
    nuovo file: appare nello Spazio docente, così Daniel può controllare al
    volo se il sito ha davvero caricato l'ultima versione, senza dover cercare
    il codice su GitHub ogni volta. */
-const APP_VERSION = "2026-10-01 — filtri separati 3ª A / 3ª B in Classi";
+const APP_VERSION = "2026-10-05 — filtri 3A/3B, domande aperte 1-3 punti, screenshot+codice, dispense multi-classe";
 
 /* ---------------- DOMANDE ---------------- */
 
@@ -2351,7 +2351,9 @@ function renderStudentProveList(){
     [...acc.prove].sort((a,b)=>b.ts-a.ts).forEach(p=>{
       const item = el("div","hist-item");
       const top2 = el("div","hist-top");
-      top2.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+      const noVoto1 = provaHasVotoDisabled(p.provaId);
+      const votePillHtml1 = noVoto1 ? `<span class="vote-pill" style="color:var(--text-dim);">— (non conta)</span>` : `<span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+      top2.innerHTML = `<span>${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span>${votePillHtml1}`;
       item.appendChild(top2);
       const line = el("div","", `Compenso: ${p.gross}€ · Totale con credito: ${p.totale}€`);
       line.style.fontSize="12px"; line.style.color="var(--text-dim)";
@@ -2730,7 +2732,7 @@ function renderAperteRound(round){
   const card = el("div","card");
   card.appendChild(roundHeader(round));
 
-  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length, texts:{}, photos:{}};
+  if(!state.answers[round.key]) state.answers[round.key] = {correct:0, total:round.questions.length*3, texts:{}, photos:{}};
   const answerState = state.answers[round.key];
   if(!answerState.photos) answerState.photos = {}; // compatibilità con round "aperte" salvati prima di questo aggiornamento
   const texts = answerState.texts;
@@ -2806,12 +2808,18 @@ function renderAperteRound(round){
   $app.appendChild(screen);
 }
 function syncAperteCount(round){
+  // ogni domanda vale fino a 3 punti (il docente poi corregge da 1 a 3 a
+  // seconda di quanto gli piace la risposta); appena consegnata, prima
+  // della correzione, vale un punteggio di partenza "medio" (2 su 3).
+  const PUNTI_MAX_APERTA = 3;
+  const PUNTI_PARTENZA_APERTA = 2;
   const answerState = state.answers[round.key];
   const texts = answerState.texts;
   const photos = answerState.photos || {};
-  const correct = round.questions.filter(q=>(texts[q.id]||"").trim().length>0 || photos[q.id]).length;
+  const answered = round.questions.filter(q=>(texts[q.id]||"").trim().length>0 || photos[q.id]).length;
+  const correct = answered * PUNTI_PARTENZA_APERTA;
   answerState.correct = correct;
-  answerState.total = round.questions.length;
+  answerState.total = round.questions.length * PUNTI_MAX_APERTA;
 }
 
 /* --- multi (detective) round --- */
@@ -3011,17 +3019,23 @@ function renderStudentResult(){
     const savedTag = el("div","saved-tag", "✓ Salvato e confermato — il tuo insegnante lo vede già");
     receipt.appendChild(savedTag);
   } else {
-    const errorBox = el("div","");
-    errorBox.style.cssText = "margin-top:10px;";
     const errorTag = el("div","saved-tag", "⚠️ Non sono riuscito a salvare — controlla la connessione");
     errorTag.style.color = "var(--red)";
-    errorBox.appendChild(errorTag);
+    receipt.appendChild(errorTag);
     const sendBtn = el("button","btn-primary", "📤 Invia la prova");
     sendBtn.style.cssText = "margin-top:10px;";
     sendBtn.onclick = ()=>confirmProvaSaved();
-    errorBox.appendChild(sendBtn);
-    receipt.appendChild(errorBox);
+    receipt.appendChild(sendBtn);
   }
+
+  // promemoria sempre presente, in ogni stato: prudenza anche se sembra andata bene
+  const screenshotNote = el("p","", "📸 Prima di uscire, fai uno screenshot di questa schermata (con il codice qui sotto). Se la prova non risultasse salvata, mostralo al tuo insegnante: gli servirà per aggiungere il risultato a mano.");
+  screenshotNote.style.cssText = "font-size:12px;margin-top:10px;color:var(--text-dim);line-height:1.5;";
+  receipt.appendChild(screenshotNote);
+  const errCode = `${state.username}-${prova.provaId}-${prova.ts}`;
+  const codeNote = el("p","", `Codice: ${errCode}`);
+  codeNote.style.cssText = "font-size:12px;margin-top:8px;font-family:monospace;color:var(--gold);font-weight:700;letter-spacing:.02em;";
+  receipt.appendChild(codeNote);
 
   const note = el("p","", "Il voto sul tuo profilo è la media di tutte le prove che hai completato, non solo di questa.");
   note.style.cssText="font-size:12px;margin-top:14px;";
@@ -3195,13 +3209,14 @@ function renderTeacherDispense(){
   howToCard.appendChild(howToP);
   screen.appendChild(howToCard);
 
-  // ---- bottone "+" sempre visibile: titolo + link + classe ----
+  // ---- bottone "+" sempre visibile: titolo + link + una o più classi ----
   if(!state.pendingDispensa){
     const addBtn = el("button","btn-primary", "＋ Aggiungi una dispensa");
-    addBtn.onclick = ()=>{ state.pendingDispensa = {titolo:"", link:"", classe:null}; render(); };
+    addBtn.onclick = ()=>{ state.pendingDispensa = {titolo:"", link:"", classi:[]}; render(); };
     screen.appendChild(addBtn);
   } else {
     const pd = state.pendingDispensa;
+    if(!pd.classi) pd.classi = []; // compatibilità, nel caso arrivasse ancora nel vecchio formato
     const pickCard = el("div","card");
     pickCard.style.marginTop = "6px";
 
@@ -3221,14 +3236,18 @@ function renderTeacherDispense(){
     fLink.appendChild(inpLink);
     pickCard.appendChild(fLink);
 
-    const pickLbl = el("p","", "A quale classe mostrarla?");
+    const pickLbl = el("p","", "A quali classi mostrarla? (puoi sceglierne più di una)");
     pickLbl.style.cssText = "font-size:13px;color:var(--text-dim);margin-bottom:8px;font-weight:500;";
     pickCard.appendChild(pickLbl);
     const pick = el("div","class-pick");
     TUTTE_LE_CLASSI.forEach(c=>{
       const b = el("button","", c);
-      if(pd.classe===c) b.classList.add("sel");
-      b.onclick = ()=>{ pd.classe = c; render(); };
+      if(pd.classi.includes(c)) b.classList.add("sel");
+      b.onclick = ()=>{
+        if(pd.classi.includes(c)) pd.classi = pd.classi.filter(x=>x!==c);
+        else pd.classi.push(c);
+        render();
+      };
       pick.appendChild(b);
     });
     pickCard.appendChild(pick);
@@ -3236,10 +3255,11 @@ function renderTeacherDispense(){
     const confirmBtn = el("button","btn-primary", "Aggiungi →");
     confirmBtn.style.marginTop = "16px";
     confirmBtn.onclick = async ()=>{
-      const {titolo, link, classe} = state.pendingDispensa;
-      if(!classe){ showToast("Scegli a quale classe mostrarla"); return; }
+      const {titolo, link, classi} = state.pendingDispensa;
+      if(!classi || !classi.length){ showToast("Scegli almeno una classe a cui mostrarla"); return; }
       state.pendingDispensa = null;
-      await addDispensaLink(classe, titolo, link);
+      // stesso titolo e link, una voce separata per ogni classe scelta: non serve reincollare il link più volte
+      for(const classe of classi){ await addDispensaLink(classe, titolo, link); }
       render();
     };
     pickCard.appendChild(confirmBtn);
@@ -3705,24 +3725,31 @@ function renderTeacherStudenti(){
 
   const accounts = getAccounts();
   const accEntries = Object.entries(accounts);
-  const classes = Array.from(new Set(accEntries.map(([,a])=>a.classe))).sort();
 
-  if(classes.length){
-    const filterBar = el("div","class-filter");
-    const allBtn = el("button","", "Tutte");
-    if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
-    allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
-    filterBar.appendChild(allBtn);
-    classes.forEach(c=>{
+  // stessa barra filtri di "Classi", con la 3ª Grafica spezzata in A/B/da scegliere
+  const filterBar = el("div","class-filter");
+  const allBtn = el("button","", "Tutte");
+  if(state.teacherFilter==="tutte") allBtn.classList.add("sel");
+  allBtn.onclick=()=>{ state.teacherFilter="tutte"; render(); };
+  filterBar.appendChild(allBtn);
+  TUTTE_LE_CLASSI.forEach(c=>{
+    if(c==="3ª Grafica"){
+      [["3A","3ª A"],["3B","3ª B"],["3ª Grafica","3ª (?)"]].forEach(([val,lbl])=>{
+        const b = el("button","", lbl);
+        if(state.teacherFilter===val) b.classList.add("sel");
+        b.onclick=()=>{ state.teacherFilter=val; render(); };
+        filterBar.appendChild(b);
+      });
+    } else {
       const b = el("button","", c);
       if(state.teacherFilter===c) b.classList.add("sel");
       b.onclick=()=>{ state.teacherFilter=c; render(); };
       filterBar.appendChild(b);
-    });
-    accCard.appendChild(filterBar);
-  }
+    }
+  });
+  accCard.appendChild(filterBar);
 
-  const filteredEntries = accEntries.filter(([,a])=> state.teacherFilter==="tutte" || a.classe===state.teacherFilter);
+  const filteredEntries = accEntries.filter(([,a])=>matchesTeacherFilter(a, state.teacherFilter));
 
   if(!filteredEntries.length){
     const empty = el("p","", "Nessun profilo studente in questa classe.");
@@ -3733,7 +3760,8 @@ function renderTeacherStudenti(){
       const row = el("div","prova-row");
       row.style.marginTop = "12px";
       const info = el("div","prova-row-info");
-      info.innerHTML = `<strong>${acc.cognome} ${acc.nome} <span style="color:var(--text-dim);font-weight:500;">@${uname}</span></strong><span>${acc.classe} · ${acc.prove.length} prove · fatturato ${calcFatturato(acc.prove)}€ · credito ${acc.credito||0}€ · voto ${fmtVoto(acc.voto)}</span>`;
+      const classeStuTxt = (acc.classe==="3ª Grafica") ? `${acc.classe}${acc.sezione ? " "+acc.sezione : " (?)"}` : acc.classe;
+      info.innerHTML = `<strong>${acc.cognome} ${acc.nome} <span style="color:var(--text-dim);font-weight:500;">@${uname}</span></strong><span>${classeStuTxt} · ${acc.prove.length} prove · fatturato ${calcFatturato(acc.prove)}€ · credito ${acc.credito||0}€ · voto ${fmtVoto(acc.voto)}</span>`;
       row.appendChild(info);
       const delBtn = el("button","prova-toggle", "Elimina");
       delBtn.onclick = ()=>{
@@ -4148,7 +4176,9 @@ function renderTeacherDetail(){
     const item = el("div","hist-item");
     const top = el("div","hist-top");
     const unreviewedDot = !p.teacherReviewed ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:7px;"></span>` : "";
-    top.innerHTML = `<span>${unreviewedDot}${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span><span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+    const noVoto2 = provaHasVotoDisabled(p.provaId);
+    const votePillHtml2 = noVoto2 ? `<span class="vote-pill" style="color:var(--text-dim);">— (non conta)</span>` : `<span class="vote-pill ${p.voto<=4?'low':p.voto<=7?'mid':'high'}">${p.voto}</span>`;
+    top.innerHTML = `<span>${unreviewedDot}${provaIcon(p.provaId)} ${p.provaTitle||"Prova"} · ${new Date(p.ts).toLocaleDateString("it-IT")}</span>${votePillHtml2}`;
     item.appendChild(top);
     const line = el("div","", `Compenso: ${p.gross}€ · Credito precedente: ${p.creditoPrima}€ · Totale: ${p.totale}€`);
     line.style.fontSize="12px"; line.style.color="var(--text-dim)";
