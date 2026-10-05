@@ -504,7 +504,7 @@ const STORAGE_KEY = "gsc_teacher_db_v1";
    nuovo file: appare nello Spazio docente, così Daniel può controllare al
    volo se il sito ha davvero caricato l'ultima versione, senza dover cercare
    il codice su GitHub ogni volta. */
-const APP_VERSION = "2026-10-05b — ricalcola voti ora si può fare per singola classe";
+const APP_VERSION = "2026-10-05c — bug credito oltre 99€ risolto (ora separato dal voto)";
 
 /* ---------------- DOMANDE ---------------- */
 
@@ -1912,8 +1912,12 @@ function fmtVoto(v){ return (v===null || v===undefined) ? "—" : v.toFixed(1); 
    fino a un massimo di 10. Restituisce anche il credito residuo (sempre tra 0 e
    99€) dopo aver "speso" i 100€ per ogni punto di voto guadagnato. */
 function votoFromTotale(totale){
+  // voto e credito sono calcolati separati, non uno in funzione dell'altro:
+  // il credito è sempre e solo il resto della divisione per 100 (0-99€),
+  // anche quando il voto ha già raggiunto il tetto massimo di 10 e quindi
+  // non può più "assorbire" altri 100€ facendo salire il voto.
   const voto = Math.max(2, Math.min(10, 2 + Math.floor(totale/100)));
-  const credito = totale - (voto-2)*100;
+  const credito = totale % 100;
   return {voto, credito};
 }
 
