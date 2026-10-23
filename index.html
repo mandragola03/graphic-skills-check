@@ -1858,7 +1858,7 @@ function initFirebase(){
 }
 
 function normalizeUsername(u){ return (u||"").trim().toLowerCase().replace(/\s+/g,""); }
-function calcFatturato(prove){ return (prove||[]).reduce((sum,p)=>sum+(p.gross||0), 0); }
+function calcFatturato(prove){ return (prove||[]).reduce((sum,p)=>sum+(p.fatturatoAzzerato ? 0 : (p.gross||0)), 0); }
 
 /* ---- Dispense (PDF delle lezioni), organizzate per classe, su Firebase Storage ---- */
 function getDispenseForClasse(classe){
@@ -3880,8 +3880,8 @@ function renderTeacherBackup(){
   // --- strumenti mirati: scegli la classe, poi cancella voti o azzera crediti ---
   const targetedCard = el("div","card");
   targetedCard.style.marginTop = "16px";
-  targetedCard.appendChild(el("h2","", "Azzera voti o crediti, per classe"));
-  const targetedP = el("p","", "Scegli su quale classe agire, poi scegli cosa azzerare. Il fatturato e lo storico delle prove non vengono MAI toccati da questi due tasti: solo il numero del voto o del credito.");
+  targetedCard.appendChild(el("h2","", "Azzera voti, crediti o fatturato, per classe"));
+  const targetedP = el("p","", "Scegli su quale classe agire, poi scegli cosa azzerare. Lo storico delle prove non viene MAI cancellato: restano visibili tutte le prove fatte. Azzerare il fatturato lo riporta a 0€ e da quel momento conta solo le prove nuove.");
   targetedP.style.cssText = "margin-bottom:14px;";
   targetedCard.appendChild(targetedP);
 
@@ -3936,6 +3936,26 @@ function renderTeacherBackup(){
   targetedBtnRow.appendChild(clearCreditoBtn);
 
   targetedCard.appendChild(targetedBtnRow);
+
+  const clearFatturatoRow = el("div","toolbar");
+  clearFatturatoRow.style.marginTop = "10px";
+  const clearFatturatoBtn = el("button","btn-secondary", "Azzera fatturato");
+  clearFatturatoBtn.onclick = ()=>{
+    const label = state.backupClassFilter==="tutte" ? "TUTTE le classi" : `la classe ${state.backupClassFilter}`;
+    if(!confirm(`Azzerare il fatturato (torna a 0€) di tutti gli studenti di ${label}? Lo storico delle prove resta visibile, ma le prove fatte finora non verranno più contate nel fatturato. Operazione non reversibile.`)) return;
+    const accounts = getAccounts();
+    let changed = 0;
+    Object.values(accounts).forEach(acc=>{
+      if(state.backupClassFilter==="tutte" || acc.classe===state.backupClassFilter){
+        (acc.prove||[]).forEach(p=>{ p.fatturatoAzzerato = true; });
+        changed++;
+      }
+    });
+    if(changed){ saveAccounts(accounts); showToast(`Fatturato azzerato per ${changed} studenti ✓`); render(); }
+    else showToast("Nessuno studente trovato in questa classe");
+  };
+  clearFatturatoRow.appendChild(clearFatturatoBtn);
+  targetedCard.appendChild(clearFatturatoRow);
   screen.appendChild(targetedCard);
 
   const dangerCard = el("div","card");
