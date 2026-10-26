@@ -1900,7 +1900,7 @@ async function deleteDispensa(id){
    docente danno comunque fatturato/credito, ma non entrano in questa media). */
 function computeAvgVoto(prove){
   if(!prove || !prove.length) return null;
-  const countable = prove.filter(p=>!provaHasVotoDisabled(p.provaId));
+  const countable = prove.filter(p=>p.provaId!=="manuale" && !provaHasVotoDisabled(p.provaId));
   if(!countable.length) return null;
   const avg = countable.reduce((s,p)=>s+p.voto, 0) / countable.length;
   return Math.max(2, Math.min(10, Math.round(avg*10)/10));
@@ -1911,14 +1911,30 @@ function fmtVoto(v){ return (v===null || v===undefined) ? "—" : v.toFixed(1); 
    es. prova annullata dal docente), poi ogni 100€ di totale fa salire di un punto,
    fino a un massimo di 10. Restituisce anche il credito residuo (sempre tra 0 e
    99€) dopo aver "speso" i 100€ per ogni punto di voto guadagnato. */
+/* FORMULA VOTO (a gradini, voti interi): il voto dipende dalla percentuale di punti
+   presi nella prova (compenso / 1000€ massimi), non dagli euro in sé.
+   0-14% = 2 · 15-29% = 3 · 30-44% = 4 · 45-55% = 5 · 56-65% = 6 · 66-75% = 7
+   76-85% = 8 · 86-95% = 9 · 96-100% = 10.
+   Il credito resta il resto della divisione per 100 degli euro. */
+function votoFromPercent(gross){
+  const pc = Math.round(Math.max(0, Math.min(1000, gross||0)) / 10); // percentuale intera 0-100
+  if(pc<=14) return 2;
+  if(pc<=29) return 3;
+  if(pc<=44) return 4;
+  if(pc<=55) return 5;
+  if(pc<=65) return 6;
+  if(pc<=75) return 7;
+  if(pc<=85) return 8;
+  if(pc<=95) return 9;
+  return 10;
+}
 function votoFromTotale(totale){
   // voto e credito sono calcolati separati, non uno in funzione dell'altro:
   // il credito è sempre e solo il resto della divisione per 100 (0-99€),
   // anche quando il voto ha già raggiunto il tetto massimo di 10 e quindi
   // non può più "assorbire" altri 100€ facendo salire il voto.
-  const voto = Math.max(2, Math.min(10, 2 + Math.floor(totale/100)));
   const credito = totale % 100;
-  return {voto, credito};
+  return {voto:null, credito};
 }
 
 /* Ricalcola in ordine cronologico tutta la catena credito -> totale -> voto per ogni
@@ -1932,7 +1948,7 @@ function recomputeStudentProve(acc){
     p.creditoPrima = credito;
     p.totale = (p.gross||0) + credito;
     const r = votoFromTotale(p.totale);
-    p.voto = r.voto;
+    p.voto = votoFromPercent(p.gross);
     credito = r.credito;
   });
   acc.credito = credito;
@@ -2511,7 +2527,7 @@ function finishProva(){
     confirmProvaSaved(); // in più: aspetta la conferma VERA da Firestore, per mostrarla allo studente
   } else {
     // fallback, non dovrebbe succedere: profilo non trovato
-    const voto = votoFromTotale(gross).voto;
+    const voto = votoFromPercent(gross);
     prova = {ts:Date.now(), provaId:ACTIVE_PROVA.id, provaTitle:ACTIVE_PROVA.title, gross, creditoPrima:0, totale:gross, voto, rounds:roundsSnapshot, idea};
     state.sendStatus = "error"; // senza un profilo non c'è nulla da salvare davvero
   }
